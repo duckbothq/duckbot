@@ -1,0 +1,62 @@
+[
+  {
+    "id": "hr-onboarding-zh",
+    "language": "zh-Hant",
+    "description": "Internal HR email forwarding a new joiner's details",
+    "marked": "人事部同事轉來一封內部電郵，說明新加入的員工[[PERSON_NAME:陳嘉雯]]將於 10 月 1 日報到，香港身份證號碼為 [[HKID:Z683365(A)]]，聯絡電話為 [[PHONE:9876 5432]]，月薪為 [[SALARY:HK$42,000]]。電郵中請我們協助整理入職前需要準備的事項，包括電腦、系統帳戶及保險安排。如有疑問可電郵 [[EMAIL:hr@example-company.com.hk]] 查詢。"
+  },
+  {
+    "id": "quotation-enquiry-zh",
+    "language": "zh-Hant",
+    "description": "Customer enquiry asking for an office furniture quotation",
+    "marked": "[[PERSON_NAME:李偉明]]先生昨天來電查詢新辦公室的傢俬報價，希望包括辦公桌、會議桌與儲物櫃，預算約 [[MONEY:HK$48,500]]。他的聯絡電話是 [[PHONE:+852 2345 6789]]，電郵 [[EMAIL:wm.lee@example-trading.hk]]。公司商業登記號碼為 [[BR_NUMBER:51234567-000]]，請一併核對付款資料。"
+  },
+  {
+    "id": "school-report-zh",
+    "language": "zh-Hant",
+    "description": "School administrative note about a student record",
+    "marked": "家長[[PERSON_NAME:黃美儀]]來電查詢學生記錄。學生身份證號碼 [[HKID:K470285(9)]]，家長聯絡電話 [[PHONE:6123 4567]]。請按既定程序核實身分後才提供資料，並將查詢記錄電郵至 [[EMAIL:registry@example-school.edu.hk]]。"
+  },
+  {
+    "id": "accounting-memo-zh",
+    "language": "zh-Hant",
+    "description": "Accounting firm internal memo about a client engagement",
+    "marked": "就[[PERSON_NAME:張明輝]]客戶的年度審計，負責人為[[PERSON_NAME:何志強]]。客戶商業登記號碼 [[BR_NUMBER:68901234 005]]，本年度審計費為 [[MONEY:HK$86,000]]。客戶董事身份證號碼 [[HKID:P550331(4)]]，資料僅供內部核對，不得外傳。"
+  },
+  {
+    "id": "hr-onboarding-en",
+    "language": "en",
+    "description": "English version of the HR onboarding email",
+    "marked": "A colleague forwarded an internal HR email about the new joiner, [[PERSON_NAME:CHAN Ka Man]], who will start on 1 October. Her Hong Kong ID is [[HKID:A123456(3)]], her contact number is [[PHONE:+852 9876 5432]], and her monthly salary is [[SALARY:HK$42,000]]. Please reply to [[EMAIL:people@example-company.com.hk]] with the onboarding checklist."
+  },
+  {
+    "id": "supplier-invoice-en",
+    "language": "en",
+    "description": "Supplier invoice reconciliation note",
+    "marked": "Invoice from the supplier is outstanding. Contact there is [[PERSON_NAME:WONG Siu Ling]] on [[PHONE:2345 6789]], email [[EMAIL:ap@example-supplier.com]]. The amount is [[MONEY:HK$12,340.50]] and their business registration is [[BR_NUMBER:74561230-000]]."
+  },
+  {
+    "id": "insurance-claim-en",
+    "language": "en",
+    "description": "Staff insurance claim with an identity document",
+    "marked": "Claim submitted for [[PERSON_NAME:LAM Chi Keung]], HKID [[HKID:AB987654(3)]], reachable on [[PHONE:5123 4567]]. Approved amount [[MONEY:HK$3,200]]. Send confirmation to [[EMAIL:claims@example-broker.hk]]."
+  },
+  {
+    "id": "no-sensitive-data",
+    "language": "en",
+    "description": "A document with nothing sensitive, to catch over-redaction",
+    "marked": "Please summarise the attached product brochure and list the three key features in plain English. The brochure describes a standing desk range with adjustable height, cable management and a ten-year warranty. No customer details are involved."
+  },
+  {
+    "id": "near-miss-identifiers",
+    "language": "en",
+    "description": "Identifier-shaped strings that are NOT sensitive — false-positive bait",
+    "marked": "Order reference X123456 was shipped under tracking code AB998877 on the 4th. Product SKU Z999999 is discontinued. The meeting room is 2301 and the extension is 4021. Serial number K470285 has no check digit and is not an identity number."
+  },
+  {
+    "id": "followup-repeat-zh",
+    "language": "zh-Hant",
+    "description": "Follow-up note where a name is introduced with a role word and then used bare — the shape anchored rules alone cannot cover",
+    "marked": "會議跟進：客戶[[PERSON_NAME:梁詠珊]]已確認下月的維護安排。請於本週內致電 [[PHONE:9012 3456]] 同[[PERSON_NAME:梁詠珊]]再核對時間，並將會議紀錄電郵至 [[EMAIL:ps.leung@example-client.hk]]。如[[PERSON_NAME:梁詠珊]]未能出席，改由其同事代表。"
+  }
+]
