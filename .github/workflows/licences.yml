@@ -1,0 +1,56 @@
+name: licences
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly. A dependency's licence can change in a patch release, and nobody notices
+    # until something forces them to look.
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  licence-gate:
+    name: licence gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the project and its resolved dependency tree
+        run: |
+          python -m pip install --upgrade pip
+          pip install ./packages/duckbot-schemas
+
+      - name: Test the gate itself
+        run: |
+          pip install pytest
+          pytest scripts/test_check_licences.py -q
+
+      # Runs against the RESOLVED environment, so transitive dependencies are covered.
+      # A direct-only scan would miss a permissive wrapper around a copyleft binary,
+      # which is the case duckbot_dependency_licence_register.md documents.
+      - name: Check licences
+        run: python scripts/check_licences.py --write-notices THIRD_PARTY_LICENSES
+
+      - name: Generate SBOM
+        run: |
+          pip install cyclonedx-bom
+          cyclonedx-py environment --output-format JSON --outfile sbom.json || \
+            echo "SBOM generation failed; not blocking the build, the licence gate above is the gate"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: licence-report
+          path: |
+            THIRD_PARTY_LICENSES
+            sbom.json
+          if-no-files-found: warn
