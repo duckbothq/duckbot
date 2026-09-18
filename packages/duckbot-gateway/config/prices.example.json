@@ -1,0 +1,20 @@
+[
+  {
+    "provider": "anthropic",
+    "model": "REPLACE-WITH-THE-MODEL-YOU-USE",
+    "input_per_mtok": null,
+    "output_per_mtok": null,
+    "currency": "USD",
+    "source": "https://www.anthropic.com/pricing — replace with the page you read",
+    "checked_on": "2026-01-01"
+  },
+  {
+    "provider": "openai-compatible",
+    "model": "REPLACE-WITH-THE-MODEL-YOU-USE",
+    "input_per_mtok": null,
+    "output_per_mtok": null,
+    "currency": "USD",
+    "source": "your provider's pricing page",
+    "checked_on": "2026-01-01"
+  }
+]

@@ -15,12 +15,13 @@ concurrency:
 
 jobs:
   test:
-    name: test (py${{ matrix.python-version }})
+    name: test ${{ matrix.package }} (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13"]
+        package: [duckbot-schemas, duckbot-core, duckbot-privacy, duckbot-gateway]
 
     steps:
       - uses: actions/checkout@v4
@@ -29,22 +30,61 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install duckbot-schemas and duckbot-core
+      # Schemas goes in first and on its own. The other packages declare
+      # `duckbot-schemas` as an ordinary named dependency, and if it is not already
+      # installed pip will go looking for that name on PyPI — where it is not ours.
+      # Installing it first means the requirement is already satisfied and the index is
+      # never consulted for it. See PRIVACY-PUSH-INSTRUCTIONS.md.
+      - name: Install packages
         run: |
           python -m pip install --upgrade pip
-          pip install ./packages/duckbot-schemas ./packages/duckbot-core pytest
+          pip install ./packages/duckbot-schemas
+          pip install ./packages/duckbot-core
+          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway pytest
 
-      - name: Run tests (schemas)
-        working-directory: packages/duckbot-schemas
+      - name: Run tests
+        working-directory: packages/${{ matrix.package }}
         run: pytest -q
 
-      - name: Run tests (core)
-        working-directory: packages/duckbot-core
-        run: pytest -q
+  recall:
+    name: detection recall
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install ./packages/duckbot-schemas
+          pip install ./packages/duckbot-privacy
+
+      # The thresholds are asserted in tests/test_recall.py, which the test job runs.
+      # This job exists so the figure is visible in the build log without anyone having
+      # to run it locally: a number nobody looks at is a number that quietly rots.
+      - name: Measure
+        working-directory: packages/duckbot-privacy
+        run: python scripts_measure.py corpus/hk_business_v1.json
 
   lint:
-    name: lint and types
+    name: lint and types (${{ matrix.package }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: duckbot-schemas
+            module: duckbot_schemas
+          - package: duckbot-core
+            module: duckbot_core
+          - package: duckbot-privacy
+            module: duckbot_privacy
+          - package: duckbot-gateway
+            module: duckbot_gateway
+
     steps:
       - uses: actions/checkout@v4
 
@@ -55,35 +95,23 @@ jobs:
       - name: Install tooling
         run: |
           python -m pip install --upgrade pip
-          pip install ./packages/duckbot-schemas ./packages/duckbot-core ruff mypy
+          pip install ./packages/duckbot-schemas
+          pip install ./packages/duckbot-core
+          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway ruff mypy
 
       # All three gates block. They were clean when this workflow was written, so
       # there is no reason to start them as warnings — a gate everyone has learned to
       # ignore is worse than no gate.
-      - name: ruff check (schemas)
-        working-directory: packages/duckbot-schemas
+      - name: ruff check
+        working-directory: packages/${{ matrix.package }}
         run: ruff check src tests
 
-      - name: ruff format (schemas)
-        working-directory: packages/duckbot-schemas
+      - name: ruff format
+        working-directory: packages/${{ matrix.package }}
         run: ruff format --check src tests
 
-      - name: mypy (strict, schemas)
-        working-directory: packages/duckbot-schemas
-        run: mypy --strict src/duckbot_schemas
-        env:
-          MYPYPATH: src
-
-      - name: ruff check (core)
-        working-directory: packages/duckbot-core
-        run: ruff check src tests
-
-      - name: ruff format (core)
-        working-directory: packages/duckbot-core
-        run: ruff format --check src tests
-
-      - name: mypy (strict, core)
-        working-directory: packages/duckbot-core
-        run: mypy --strict src/duckbot_core
+      - name: mypy (strict)
+        working-directory: packages/${{ matrix.package }}
+        run: mypy --strict src/${{ matrix.module }}
         env:
           MYPYPATH: src
