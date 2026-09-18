@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question, help, or installation problem
+    url: https://github.com/duckbothq/duckbot/discussions
+    about: Community support happens in Discussions. Issues are for reproducible bugs only.
+  - name: Feature idea
+    url: https://github.com/duckbothq/duckbot/discussions/categories/ideas
+    about: Propose and discuss ideas here first, before opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/duckbothq/duckbot/security/policy
+    about: Do not report security issues publicly. Follow the security policy.
+  - name: Commercial deployment or support
+    url: https://duckbot.hk
+    about: Paid deployment, integration, training and support from iGears.

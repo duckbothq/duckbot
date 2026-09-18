@@ -1,0 +1,62 @@
+name: Bug report
+description: Something is broken and you can reproduce it
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This tracker is for **reproducible bugs** only.
+
+        Questions, installation problems, and "how do I" belong in
+        [Discussions](https://github.com/duckbothq/duckbot/discussions).
+        Issues that are questions will be converted.
+
+        **Do not paste real customer data, credentials, or personal information.**
+        Replace anything sensitive with made-up values before posting.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Duckbot version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - Windows Server
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Which model or provider were you using?
+      placeholder: e.g. local llama.cpp, or a named cloud provider
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Redact anything sensitive first. This is automatically formatted as code.
+      render: shell
