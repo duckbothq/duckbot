@@ -18,16 +18,23 @@ jobs:
     name: licence gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - name: Install the project and its resolved dependency tree
+      # EVERY package, not just the schemas. The gate scans the resolved environment,
+      # so a package that is not installed contributes no dependencies to scan — and a
+      # gate that silently covers less than people believe is worse than an obvious gap.
+      # Schemas goes first and alone so that the named `duckbot-schemas` requirement in
+      # the others is already satisfied and pip never looks for that name on PyPI.
+      - name: Install every package and its resolved dependency tree
         run: |
           python -m pip install --upgrade pip
           pip install ./packages/duckbot-schemas
+          pip install ./packages/duckbot-core
+          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway
 
       - name: Test the gate itself
         run: |
@@ -46,7 +53,7 @@ jobs:
           cyclonedx-py environment --output-format JSON --outfile sbom.json || \
             echo "SBOM generation failed; not blocking the build, the licence gate above is the gate"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: licence-report
