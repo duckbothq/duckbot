@@ -13,6 +13,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Ships inline type information. Without this marker mypy silently skips the package in
+# every downstream consumer, which quietly disables strict checking wherever it is used.
+[tool.setuptools.package-data]
+duckbot_schemas = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
