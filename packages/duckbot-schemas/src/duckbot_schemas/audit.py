@@ -11,8 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import Field, model_validator
 
@@ -21,7 +20,7 @@ from .common import DuckbotModel, PolicyAction, SensitivityLevel, new_id, utc_no
 GENESIS_HASH = "0" * 64
 
 
-class AuditAction(str, Enum):
+class AuditAction(StrEnum):
     CONTENT_CLASSIFIED = "content_classified"
     POLICY_EVALUATED = "policy_evaluated"
     CONTENT_REDACTED = "content_redacted"
@@ -49,26 +48,26 @@ class AuditEvent(DuckbotModel):
 
     actor: str = Field(min_length=1, description="user id, or 'system'")
     action: AuditAction
-    target: Optional[str] = Field(default=None, min_length=1)
+    target: str | None = Field(default=None, min_length=1)
 
-    task_id: Optional[str] = Field(default=None, min_length=1)
-    classification_id: Optional[str] = Field(default=None, min_length=1)
-    policy_decision_id: Optional[str] = Field(default=None, min_length=1)
-    model_call_id: Optional[str] = Field(default=None, min_length=1)
-    approval_id: Optional[str] = Field(default=None, min_length=1)
+    task_id: str | None = Field(default=None, min_length=1)
+    classification_id: str | None = Field(default=None, min_length=1)
+    policy_decision_id: str | None = Field(default=None, min_length=1)
+    model_call_id: str | None = Field(default=None, min_length=1)
+    approval_id: str | None = Field(default=None, min_length=1)
 
-    sensitivity: Optional[SensitivityLevel] = None
-    policy_action: Optional[PolicyAction] = None
-    destination: Optional[str] = Field(default=None, min_length=1)
+    sensitivity: SensitivityLevel | None = None
+    policy_action: PolicyAction | None = None
+    destination: str | None = Field(default=None, min_length=1)
     placeholder_tokens: list[str] = Field(default_factory=list)
 
     result: str = Field(default="ok", min_length=1)
-    detail: Optional[str] = Field(
+    detail: str | None = Field(
         default=None, description="human-readable; must not contain sensitive values"
     )
 
     prev_hash: str = Field(default=GENESIS_HASH, pattern=r"^[0-9a-f]{64}$")
-    entry_hash: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    entry_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     def compute_hash(self) -> str:
         """Hash of this entry's content plus the previous entry's hash."""
@@ -76,18 +75,18 @@ class AuditEvent(DuckbotModel):
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    def sealed(self) -> "AuditEvent":
+    def sealed(self) -> AuditEvent:
         """Return a copy with ``entry_hash`` filled in. Seal once, then append."""
         return self.model_copy(update={"entry_hash": self.compute_hash()})
 
     @model_validator(mode="after")
-    def _external_actions_are_attributable(self) -> "AuditEvent":
+    def _external_actions_are_attributable(self) -> AuditEvent:
         if self.action is AuditAction.SENT_TO_MODEL and not self.destination:
             raise ValueError("an outbound event must record where it went")
         return self
 
 
-def verify_chain(events: list[AuditEvent]) -> tuple[bool, Optional[int]]:
+def verify_chain(events: list[AuditEvent]) -> tuple[bool, int | None]:
     """Verify a sealed log.
 
     Returns ``(True, None)`` when intact, or ``(False, sequence)`` at the first entry

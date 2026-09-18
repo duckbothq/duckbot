@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import Field, model_validator
 
 from .common import DuckbotModel, SensitivityLevel, new_id, utc_now
 
 
-class MemoryScope(str, Enum):
+class MemoryScope(StrEnum):
     USER = "user"
     TEAM = "team"
     ORGANISATION = "organisation"
 
 
-class RetentionPolicy(str, Enum):
+class RetentionPolicy(StrEnum):
     SESSION = "session"
     DAYS_30 = "days_30"
     DAYS_365 = "days_365"
@@ -37,7 +36,7 @@ class MemoryItem(DuckbotModel):
     scope: MemoryScope = MemoryScope.USER
     text: str = Field(min_length=1)
 
-    embedding_ref: Optional[str] = Field(
+    embedding_ref: str | None = Field(
         default=None, description="pointer into the local vector index, never the vector"
     )
     embedded_remotely: bool = Field(
@@ -48,12 +47,10 @@ class MemoryItem(DuckbotModel):
     retention: RetentionPolicy = RetentionPolicy.DAYS_365
 
     created_at: datetime = Field(default_factory=utc_now)
-    last_used_at: Optional[datetime] = None
+    last_used_at: datetime | None = None
 
     @model_validator(mode="after")
-    def _local_only_stays_local(self) -> "MemoryItem":
+    def _local_only_stays_local(self) -> MemoryItem:
         if self.sensitivity is SensitivityLevel.LOCAL_ONLY and self.embedded_remotely:
-            raise ValueError(
-                "a LOCAL_ONLY memory cannot have been embedded by a remote service"
-            )
+            raise ValueError("a LOCAL_ONLY memory cannot have been embedded by a remote service")
         return self

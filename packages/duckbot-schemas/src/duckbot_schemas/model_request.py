@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import Field, model_validator
 
@@ -20,8 +19,8 @@ class ModelCall(DuckbotModel):
     """
 
     id: str = Field(default_factory=lambda: new_id("mcall"))
-    task_id: Optional[str] = Field(default=None, min_length=1)
-    policy_decision_id: Optional[str] = Field(default=None, min_length=1)
+    task_id: str | None = Field(default=None, min_length=1)
+    policy_decision_id: str | None = Field(default=None, min_length=1)
 
     provider: str = Field(min_length=1)
     model: str = Field(min_length=1)
@@ -39,11 +38,11 @@ class ModelCall(DuckbotModel):
     )
 
     succeeded: bool = True
-    error: Optional[str] = Field(default=None, min_length=1)
+    error: str | None = Field(default=None, min_length=1)
     called_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
-    def _local_is_free_and_unrestricted(self) -> "ModelCall":
+    def _local_is_free_and_unrestricted(self) -> ModelCall:
         if not self.succeeded and not self.error:
             raise ValueError("a failed call must record why it failed")
         if self.succeeded and self.error:

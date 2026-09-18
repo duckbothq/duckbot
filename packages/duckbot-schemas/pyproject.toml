@@ -15,3 +15,26 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Pinned deliberately. Relying on ruff's defaults means a ruff upgrade can turn CI red
+# for style reasons that have nothing to do with the change being reviewed.
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "DTZ", "RUF"]
+ignore = [
+    "E501",    # line length is the formatter's job, not the linter's
+    "EXE002",  # file-mode rule; fires spuriously on a Windows-mounted checkout
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["DTZ001"]  # tests construct naive datetimes on purpose, to assert rejection
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["duckbot_schemas"]
+mypy_path = "src"
+strict = true
+warn_unused_ignores = true

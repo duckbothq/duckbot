@@ -9,7 +9,9 @@ from datetime import timedelta
 import pytest
 from pydantic import BaseModel, ValidationError
 
+import duckbot_schemas
 from duckbot_schemas import (
+    SCHEMA_VERSION,
     Approval,
     ApprovalOutcome,
     AuditAction,
@@ -17,6 +19,7 @@ from duckbot_schemas import (
     ContentClassification,
     DetectedEntity,
     DetectionMethod,
+    MemoryItem,
     ModelCall,
     ModelTier,
     Money,
@@ -24,19 +27,16 @@ from duckbot_schemas import (
     PolicyAction,
     PolicyDecision,
     RiskClass,
-    SCHEMA_VERSION,
     SensitivityLevel,
     Task,
     TaskState,
     TaskStep,
-    MemoryItem,
     utc_now,
     verify_chain,
 )
-import duckbot_schemas
-
 
 # --- the structural privacy guarantee -------------------------------------------------
+
 
 def test_placeholder_map_is_not_serialisable():
     """The mapping of token to real value must not be a serialisable model.
@@ -83,6 +83,7 @@ def test_no_schema_field_can_hold_a_placeholder_map():
 
 # --- versioning -----------------------------------------------------------------------
 
+
 def test_every_model_carries_a_schema_version():
     """Checked on the field definition, not by instantiating — most models have
     required fields, and a test that constructs them would be testing the wrong thing."""
@@ -115,6 +116,7 @@ def test_naive_datetime_is_rejected():
 
 
 # --- classification -------------------------------------------------------------------
+
 
 def test_detected_entity_carries_no_raw_value():
     assert "value" not in DetectedEntity.model_fields
@@ -149,6 +151,7 @@ def test_human_override_wins():
 
 
 # --- policy ---------------------------------------------------------------------------
+
 
 def test_blocked_content_cannot_have_a_destination():
     with pytest.raises(ValidationError):
@@ -185,6 +188,7 @@ def test_user_override_requires_a_reason():
 
 # --- model calls ----------------------------------------------------------------------
 
+
 def test_local_model_calls_are_free():
     with pytest.raises(ValidationError):
         ModelCall(
@@ -211,6 +215,7 @@ def test_failed_call_must_say_why():
 
 # --- memory ---------------------------------------------------------------------------
 
+
 def test_local_only_memory_cannot_be_embedded_remotely():
     with pytest.raises(ValidationError):
         MemoryItem(
@@ -222,6 +227,7 @@ def test_local_only_memory_cannot_be_embedded_remotely():
 
 
 # --- approval -------------------------------------------------------------------------
+
 
 def test_financial_and_destructive_always_require_approval():
     assert Approval.is_mandatory(RiskClass.FINANCIAL)
@@ -250,6 +256,7 @@ def test_pending_approval_cannot_have_a_decider():
 
 
 # --- audit ----------------------------------------------------------------------------
+
 
 def _chain(n: int) -> list[AuditEvent]:
     events: list[AuditEvent] = []
@@ -301,6 +308,7 @@ def test_audit_event_has_no_raw_value_field():
 
 
 # --- task -----------------------------------------------------------------------------
+
 
 def test_failed_task_must_record_a_reason():
     with pytest.raises(ValidationError):

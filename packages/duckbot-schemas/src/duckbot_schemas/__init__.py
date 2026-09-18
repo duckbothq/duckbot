@@ -10,6 +10,7 @@ from .classification import ContentClassification, DetectedEntity
 from .common import (
     ALWAYS_REQUIRES_APPROVAL,
     SCHEMA_VERSION,
+    TERMINAL_TASK_STATES,
     DetectionMethod,
     DuckbotModel,
     ModelTier,
@@ -17,7 +18,6 @@ from .common import (
     PolicyAction,
     RiskClass,
     SensitivityLevel,
-    TERMINAL_TASK_STATES,
     TaskState,
     new_id,
     utc_now,
@@ -30,6 +30,9 @@ from .task import Task, TaskStep
 
 __all__ = [
     "ALWAYS_REQUIRES_APPROVAL",
+    "GENESIS_HASH",
+    "SCHEMA_VERSION",
+    "TERMINAL_TASK_STATES",
     "Approval",
     "ApprovalOutcome",
     "AuditAction",
@@ -38,7 +41,6 @@ __all__ = [
     "DetectedEntity",
     "DetectionMethod",
     "DuckbotModel",
-    "GENESIS_HASH",
     "MemoryItem",
     "MemoryScope",
     "ModelCall",
@@ -49,9 +51,7 @@ __all__ = [
     "PolicyDecision",
     "RetentionPolicy",
     "RiskClass",
-    "SCHEMA_VERSION",
     "SensitivityLevel",
-    "TERMINAL_TASK_STATES",
     "Task",
     "TaskState",
     "TaskStep",

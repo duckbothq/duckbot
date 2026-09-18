@@ -12,8 +12,8 @@ Two rules govern this package and are enforced by tests rather than by comment:
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timezone
-from enum import Enum, IntEnum
+from datetime import UTC, datetime
+from enum import IntEnum, StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -29,7 +29,7 @@ an existing value is breaking, and needs a migration written in the same pull re
 
 def utc_now() -> datetime:
     """Timezone-aware UTC. Naive datetimes are rejected everywhere in this package."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def new_id(prefix: str) -> str:
@@ -72,13 +72,13 @@ class SensitivityLevel(IntEnum):
     LOCAL_ONLY = 4
 
 
-class DetectionMethod(str, Enum):
+class DetectionMethod(StrEnum):
     RULE = "rule"
     MODEL = "model"
     MANUAL = "manual"
 
 
-class PolicyAction(str, Enum):
+class PolicyAction(StrEnum):
     ALLOW = "allow"
     REDACT = "redact"
     DERIVE = "derive"
@@ -86,7 +86,7 @@ class PolicyAction(str, Enum):
     BLOCK = "block"
 
 
-class RiskClass(str, Enum):
+class RiskClass(StrEnum):
     """Approval risk classes, matching the runtime document, Section 22."""
 
     READ = "read"
@@ -106,13 +106,13 @@ considered when there is operational evidence, not before.
 """
 
 
-class ModelTier(str, Enum):
+class ModelTier(StrEnum):
     LOCAL = "local"
     LOW_COST = "low_cost"
     FRONTIER = "frontier"
 
 
-class TaskState(str, Enum):
+class TaskState(StrEnum):
     CREATED = "created"
     PLANNING = "planning"
     RUNNING = "running"

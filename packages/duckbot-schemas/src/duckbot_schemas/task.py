@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import Field, model_validator
 
 from .common import (
+    TERMINAL_TASK_STATES,
     DuckbotModel,
     Money,
     RiskClass,
-    TERMINAL_TASK_STATES,
     TaskState,
     new_id,
     utc_now,
@@ -26,13 +25,13 @@ class TaskStep(DuckbotModel):
     description: str = Field(min_length=1)
     risk_class: RiskClass = RiskClass.READ
 
-    started_at: Optional[datetime] = None
-    finished_at: Optional[datetime] = None
-    succeeded: Optional[bool] = None
-    approval_id: Optional[str] = Field(default=None, min_length=1)
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    succeeded: bool | None = None
+    approval_id: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
-    def _times_ordered(self) -> "TaskStep":
+    def _times_ordered(self) -> TaskStep:
         if self.finished_at and not self.started_at:
             raise ValueError("a step cannot finish without having started")
         if self.started_at and self.finished_at and self.finished_at < self.started_at:
@@ -63,11 +62,11 @@ class Task(DuckbotModel):
 
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
-    finished_at: Optional[datetime] = None
-    failure_reason: Optional[str] = Field(default=None, min_length=1)
+    finished_at: datetime | None = None
+    failure_reason: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
-    def _terminal_state_is_explained(self) -> "Task":
+    def _terminal_state_is_explained(self) -> Task:
         if self.state in TERMINAL_TASK_STATES and self.finished_at is None:
             raise ValueError(f"a task in state {self.state.value} must record finished_at")
         if self.state is TaskState.FAILED and not self.failure_reason:

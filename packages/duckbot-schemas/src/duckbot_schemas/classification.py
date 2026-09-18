@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -29,12 +28,12 @@ class DetectedEntity(DuckbotModel):
     end: int = Field(gt=0, description="character offset, exclusive")
     confidence: float = Field(ge=0.0, le=1.0)
     method: DetectionMethod
-    placeholder_token: Optional[str] = Field(
+    placeholder_token: str | None = Field(
         default=None, description="token substituted for this value, if it was replaced"
     )
 
     @model_validator(mode="after")
-    def _offsets_ordered(self) -> "DetectedEntity":
+    def _offsets_ordered(self) -> DetectedEntity:
         if self.end <= self.start:
             raise ValueError("end offset must be greater than start offset")
         return self
@@ -49,12 +48,12 @@ class ContentClassification(DuckbotModel):
     entities: list[DetectedEntity] = Field(default_factory=list)
     detected_at: datetime = Field(default_factory=utc_now)
 
-    reviewer_override: Optional[SensitivityLevel] = Field(
+    reviewer_override: SensitivityLevel | None = Field(
         default=None,
         description="a human disagreed with the automatic classification",
     )
-    override_reason: Optional[str] = Field(default=None, min_length=1)
-    overridden_by: Optional[str] = Field(default=None, min_length=1)
+    override_reason: str | None = Field(default=None, min_length=1)
+    overridden_by: str | None = Field(default=None, min_length=1)
 
     @field_validator("detected_at")
     @classmethod
@@ -64,13 +63,14 @@ class ContentClassification(DuckbotModel):
         return v
 
     @model_validator(mode="after")
-    def _override_is_accountable(self) -> "ContentClassification":
-        if self.reviewer_override is not None:
-            if not self.override_reason or not self.overridden_by:
-                raise ValueError(
-                    "an override must record who made it and why; "
-                    "an unattributable override is worse than none"
-                )
+    def _override_is_accountable(self) -> ContentClassification:
+        if self.reviewer_override is not None and (
+            not self.override_reason or not self.overridden_by
+        ):
+            raise ValueError(
+                "an override must record who made it and why; "
+                "an unattributable override is worse than none"
+            )
         return self
 
     @property

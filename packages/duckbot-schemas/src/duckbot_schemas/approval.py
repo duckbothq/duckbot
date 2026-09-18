@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import Field, model_validator
 
@@ -17,7 +16,7 @@ from .common import (
 )
 
 
-class ApprovalOutcome(str, Enum):
+class ApprovalOutcome(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -35,7 +34,7 @@ class Approval(DuckbotModel):
 
     id: str = Field(default_factory=lambda: new_id("apr"))
     task_id: str = Field(min_length=1)
-    step_id: Optional[str] = Field(default=None, min_length=1)
+    step_id: str | None = Field(default=None, min_length=1)
 
     risk_class: RiskClass
     action_description: str = Field(
@@ -44,12 +43,12 @@ class Approval(DuckbotModel):
     requested_at: datetime = Field(default_factory=utc_now)
 
     outcome: ApprovalOutcome = ApprovalOutcome.PENDING
-    decided_by: Optional[str] = Field(default=None, min_length=1)
-    decided_at: Optional[datetime] = None
-    decision_reason: Optional[str] = Field(default=None, min_length=1)
+    decided_by: str | None = Field(default=None, min_length=1)
+    decided_at: datetime | None = None
+    decision_reason: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
-    def _decided_means_attributed(self) -> "Approval":
+    def _decided_means_attributed(self) -> Approval:
         decided = self.outcome in (ApprovalOutcome.APPROVED, ApprovalOutcome.REJECTED)
         if decided and (not self.decided_by or self.decided_at is None):
             raise ValueError(
