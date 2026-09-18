@@ -29,13 +29,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install duckbot-schemas
+      - name: Install duckbot-schemas and duckbot-core
         run: |
           python -m pip install --upgrade pip
-          pip install ./packages/duckbot-schemas pytest
+          pip install ./packages/duckbot-schemas ./packages/duckbot-core pytest
 
-      - name: Run tests
+      - name: Run tests (schemas)
         working-directory: packages/duckbot-schemas
+        run: pytest -q
+
+      - name: Run tests (core)
+        working-directory: packages/duckbot-core
         run: pytest -q
 
   lint:
@@ -51,21 +55,35 @@ jobs:
       - name: Install tooling
         run: |
           python -m pip install --upgrade pip
-          pip install ./packages/duckbot-schemas ruff mypy
+          pip install ./packages/duckbot-schemas ./packages/duckbot-core ruff mypy
 
       # All three gates block. They were clean when this workflow was written, so
       # there is no reason to start them as warnings — a gate everyone has learned to
       # ignore is worse than no gate.
-      - name: ruff check
+      - name: ruff check (schemas)
         working-directory: packages/duckbot-schemas
         run: ruff check src tests
 
-      - name: ruff format
+      - name: ruff format (schemas)
         working-directory: packages/duckbot-schemas
         run: ruff format --check src tests
 
-      - name: mypy (strict)
+      - name: mypy (strict, schemas)
         working-directory: packages/duckbot-schemas
         run: mypy --strict src/duckbot_schemas
+        env:
+          MYPYPATH: src
+
+      - name: ruff check (core)
+        working-directory: packages/duckbot-core
+        run: ruff check src tests
+
+      - name: ruff format (core)
+        working-directory: packages/duckbot-core
+        run: ruff format --check src tests
+
+      - name: mypy (strict, core)
+        working-directory: packages/duckbot-core
+        run: mypy --strict src/duckbot_core
         env:
           MYPYPATH: src
