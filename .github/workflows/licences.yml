@@ -34,7 +34,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
-          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway
+          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
+            ./packages/duckbot-memory
 
       - name: Test the gate itself
         run: |

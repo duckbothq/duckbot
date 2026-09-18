@@ -21,7 +21,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13"]
-        package: [duckbot-schemas, duckbot-core, duckbot-privacy, duckbot-gateway]
+        package:
+          [duckbot-schemas, duckbot-core, duckbot-privacy, duckbot-gateway, duckbot-memory]
 
     steps:
       - uses: actions/checkout@v7
@@ -40,7 +41,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
-          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway pytest
+          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
+            ./packages/duckbot-memory pytest
 
       - name: Run tests
         working-directory: packages/${{ matrix.package }}
@@ -84,6 +86,8 @@ jobs:
             module: duckbot_privacy
           - package: duckbot-gateway
             module: duckbot_gateway
+          - package: duckbot-memory
+            module: duckbot_memory
 
     steps:
       - uses: actions/checkout@v7
@@ -97,7 +101,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
-          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway
+          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
+            ./packages/duckbot-memory
           pip install ruff==0.16.8 mypy==2.3.1
 
       # All three gates block. They were clean when this workflow was written, so
