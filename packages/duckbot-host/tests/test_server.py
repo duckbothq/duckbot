@@ -104,17 +104,21 @@ class TestTheSubprocess:
         env = dict(os.environ)
         env["PYTHONPATH"] = os.pathsep.join([SRC, env.get("PYTHONPATH", "")])
         payload = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in requests)
+        # Bytes, not text=True. text=True encodes the payload with *this* process's
+        # default encoding, so on a Windows console page the Chinese never reaches the
+        # pipe and the test fails while the subject is fine. The harness must not be the
+        # thing under test. See tests/test_encoding.py.
         finished = subprocess.run(
             command,
-            input=payload,
+            input=payload.encode("utf-8"),
             capture_output=True,
-            text=True,
             env=env,
             timeout=60,
             check=False,
         )
-        lines = [line for line in finished.stdout.splitlines() if line.strip()]
-        return [json.loads(line) for line in lines], finished.stderr
+        stdout = finished.stdout.decode("utf-8")
+        lines = [line for line in stdout.splitlines() if line.strip()]
+        return [json.loads(line) for line in lines], finished.stderr.decode("utf-8", "replace")
 
     def test_a_full_redact_and_restore_round_trip(self, command: list[str]) -> None:
         responses, _ = self.send(
@@ -139,7 +143,7 @@ class TestTheSubprocess:
         env = dict(os.environ)
         env["PYTHONPATH"] = os.pathsep.join([SRC, env.get("PYTHONPATH", "")])
         finished = subprocess.run(
-            command, input="", capture_output=True, text=True, env=env, timeout=60, check=False
+            command, input=b"", capture_output=True, env=env, timeout=60, check=False
         )
         assert finished.returncode == 0
 
