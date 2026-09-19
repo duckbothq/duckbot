@@ -10,8 +10,9 @@ license = "Apache-2.0"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# No shell plugin: the sidecar is spawned directly in sidecar.rs, so the plugin would
+# be build time spent on a dependency nothing calls.
 tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

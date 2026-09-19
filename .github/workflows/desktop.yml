@@ -113,11 +113,13 @@ jobs:
         with:
           node-version: "22"
 
+      # `cargo tauri build` needs the cargo subcommand (`cargo install tauri-cli`), which
+      # compiles from source and takes minutes. The npm package ships a prebuilt binary
+      # whose command is `tauri`, not `cargo tauri` — run #1 failed on exactly that
+      # confusion. npx avoids a global install and any assumption about PATH.
       - name: Build the installer
         working-directory: packages/duckbot-shell
-        run: |
-          npm install --global @tauri-apps/cli@^2
-          cargo tauri build
+        run: npx --yes "@tauri-apps/cli@^2" build
 
       # Signing runs only when there is a certificate to sign with, and never for a pull
       # request from a fork — a fork PR can change the workflow, and a workflow with

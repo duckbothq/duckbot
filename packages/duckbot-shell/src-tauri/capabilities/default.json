@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the Duckbot window is allowed to do. Only the core defaults: the window calls four commands of our own and needs nothing else.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

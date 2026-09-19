@@ -65,7 +65,7 @@ fn classify(state: tauri::State<'_, AppState>, text: String) -> Result<serde_jso
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            let path = sidecar_path(&app.handle())?;
+            let path = sidecar_path(app.handle())?;
             let sidecar = Sidecar::spawn(&path).map_err(|e| {
                 format!("could not start the Duckbot host at {}: {e}", path.display())
             })?;
