@@ -49,14 +49,13 @@ jobs:
         working-directory: packages/duckbot-host
         run: pyinstaller --noconfirm --clean duckbot-host.spec
 
-      - name: Answer a request
+      # Not a `health` check. `health` is pure ASCII and passes on a binary whose stdio
+      # is bound to the platform code page instead of UTF-8 — which silently stops Chinese
+      # name detection without raising. A Traditional Chinese product's smoke test has to
+      # contain Chinese. See duckbot-host/tests/test_encoding.py.
+      - name: Carry a Hong Kong document through the frozen binary
         working-directory: packages/duckbot-host
-        shell: bash
-        run: |
-          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"health"}' \
-            | ./dist/duckbot-host > reply.json
-          cat reply.json
-          python -c "import json,sys; d=json.load(open('reply.json')); sys.exit(0 if d['result']['ok'] else 1)"
+        run: python scripts_smoke.py ./dist/duckbot-host
 
   windows:
     name: windows installer
@@ -93,13 +92,13 @@ jobs:
         working-directory: packages/duckbot-host
         run: pyinstaller --noconfirm --clean duckbot-host.spec
 
-      - name: The sidecar answers before anything is built around it
+      # The check that matters on Windows, and the one that was missing: this platform
+      # is where stdio defaults to the ANSI code page (cp950 on a Traditional Chinese
+      # install), and where Chinese silently stopped being detected. Driven from Python
+      # rather than PowerShell so the console's own encoding cannot be what is tested.
+      - name: Carry a Hong Kong document through the frozen sidecar
         working-directory: packages/duckbot-host
-        shell: pwsh
-        run: |
-          $reply = '{"jsonrpc":"2.0","id":1,"method":"health"}' | .\dist\duckbot-host.exe
-          Write-Host $reply
-          if (-not ($reply | ConvertFrom-Json).result.ok) { throw "the sidecar did not answer" }
+        run: python scripts_smoke.py .\dist\duckbot-host.exe
 
       - name: Put the sidecar where the shell expects it
         shell: pwsh

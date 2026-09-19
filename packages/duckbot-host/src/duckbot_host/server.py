@@ -18,7 +18,7 @@ from collections.abc import Iterable
 from typing import Any, TextIO
 
 from .handlers import Session, build_handlers, dispatch
-from .protocol import INTERNAL_ERROR, Request, Response, error, parse
+from .protocol import INTERNAL_ERROR, PARSE_ERROR, Request, Response, error, parse
 
 
 def handle_line(handlers: dict[str, Any], line: str) -> Response | None:
@@ -43,7 +43,20 @@ def serve(lines: Iterable[str], out: TextIO, *, session: Session | None = None) 
     started it.
     """
     handlers = build_handlers(session or Session())
-    for line in lines:
+    iterator = iter(lines)
+    while True:
+        try:
+            line = next(iterator)
+        except StopIteration:
+            return
+        except UnicodeDecodeError:
+            # Bytes that are not UTF-8 arrived on the pipe. One malformed line should
+            # not end the session — though the stream position after a decode failure
+            # is not well defined, so a shell that sees this should expect to have to
+            # reconnect rather than trust what follows.
+            _write(out, error(PARSE_ERROR, "the line was not valid UTF-8"))
+            continue
+
         try:
             response = handle_line(handlers, line)
         except Exception as exc:
@@ -51,8 +64,12 @@ def serve(lines: Iterable[str], out: TextIO, *, session: Session | None = None) 
             # parser can contain the document that provoked it.
             response = error(INTERNAL_ERROR, f"unhandled {type(exc).__name__}")
         if response is not None:
-            out.write(response.to_json() + "\n")
-            out.flush()
+            _write(out, response)
+
+
+def _write(out: TextIO, response: Response) -> None:
+    out.write(response.to_json() + "\n")
+    out.flush()
 
 
 def serve_request(request: Request, *, session: Session | None = None) -> Response:
