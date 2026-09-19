@@ -1,8 +1,11 @@
+/* Brand tokens from https://duckbot.hk/en/brand/ — yellow #FFEC00, ink #0C0B08,
+   dark ground #0B1220. Do not introduce a second brand colour. */
 :root {
-  --ink: #1b1b1b;
+  --ink: #0c0b08;
   --paper: #fbfbf9;
   --line: #d9d7d0;
   --accent: #ffec00;
+  --dark: #0b1220;
   --warn: #8a1f11;
 }
 
