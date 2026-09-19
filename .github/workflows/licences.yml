@@ -35,7 +35,7 @@ jobs:
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
           pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
-            ./packages/duckbot-memory
+            ./packages/duckbot-memory ./packages/duckbot-eval
 
       - name: Test the gate itself
         run: |

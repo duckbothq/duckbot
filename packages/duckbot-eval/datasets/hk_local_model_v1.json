@@ -1,0 +1,116 @@
+[
+  {
+    "id": "cls-hkid-zh",
+    "task": "classify",
+    "expected_label": "LOCAL_ONLY",
+    "content": "新同事陳嘉雯下月一日報到，香港身份證號碼 A123456(3)，請先開好系統帳戶。",
+    "note": "An identity card number is the clearest local-only case there is."
+  },
+  {
+    "id": "cls-quotation-zh",
+    "task": "classify",
+    "expected_label": "MINIMIZE",
+    "content": "辦公室傢俬報價已經出咗，總額約港幣四萬八千，請同採購部核對付款條款。",
+    "note": "A quotation total is commercially sensitive but identifies nobody."
+  },
+  {
+    "id": "cls-brochure-zh",
+    "task": "classify",
+    "expected_label": "PUBLIC",
+    "content": "請將產品單張嘅三個賣點整理成一段簡介，內容全部係公開資料，唔涉及任何客戶。",
+    "note": "The over-classification control. A model that calls this sensitive is annoying, not dangerous."
+  },
+  {
+    "id": "cls-contact-zh",
+    "task": "classify",
+    "expected_label": "ANONYMIZE",
+    "content": "客戶聯絡人係李偉明，電話 2345 6789，電郵 wm.lee@example-trading.hk，請跟進報價。",
+    "note": "Names and contact details: redactable, not local-only."
+  },
+  {
+    "id": "cls-hkid-en",
+    "task": "classify",
+    "expected_label": "LOCAL_ONLY",
+    "expects_chinese": false,
+    "content": "Claim submitted for LAM Chi Keung, HKID AB987654(3), reachable on 5123 4567.",
+    "note": "The same judgement in English, to see whether the language changes the answer."
+  },
+
+  {
+    "id": "names-prefixed-zh",
+    "task": "extract_names",
+    "expected_names": ["陳嘉雯"],
+    "content": "人事部通知，新同事陳嘉雯將於十月一日報到，請安排電腦及座位。",
+    "note": "The rule layer already gets this one: there is a role word in front."
+  },
+  {
+    "id": "names-unanchored-zh",
+    "task": "extract_names",
+    "expected_names": ["張明輝"],
+    "content": "就張明輝客戶的年度審計，請於本週內提交底稿。",
+    "note": "The exact case the rule layer misses. This is the one the local model has to earn its place on."
+  },
+  {
+    "id": "names-two-bare-zh",
+    "task": "extract_names",
+    "expected_names": ["梁詠珊", "何志強"],
+    "content": "會議紀錄：梁詠珊負責報價，何志強跟進付款安排，下週五前回覆。",
+    "note": "Two names, neither with a title. Rules would need an anchor and there is none."
+  },
+  {
+    "id": "names-none-zh",
+    "task": "extract_names",
+    "expected_names": [],
+    "content": "請張開附件並陳述理由，本季度的營運開支較上季下降。",
+    "note": "The false-positive trap: 張開 and 陳述 are ordinary words that begin with surnames."
+  },
+  {
+    "id": "names-romanised-en",
+    "task": "extract_names",
+    "expected_names": ["CHAN Ka Man"],
+    "expects_chinese": false,
+    "content": "Please copy CHAN Ka Man on the onboarding checklist before Friday.",
+    "note": "Romanised Hong Kong name, surname in capitals."
+  },
+
+  {
+    "id": "rewrite-onboarding-zh",
+    "task": "derive_rewrite",
+    "content": "新同事陳嘉雯將於十月一日報到，身份證號碼 A123456(3)，聯絡電話 9876 5432，請安排入職手續。",
+    "forbidden": ["陳嘉雯", "A123456(3)", "9876 5432"],
+    "must_retain": ["十月"],
+    "note": "The value is the date and the action; the name and the numbers are not needed to act."
+  },
+  {
+    "id": "rewrite-audit-zh",
+    "task": "derive_rewrite",
+    "content": "就張明輝客戶的年度審計，負責人為何志強，客戶商業登記號碼 68901234 005，請準備底稿。",
+    "forbidden": ["張明輝", "何志強", "68901234 005"],
+    "must_retain": ["審計"],
+    "note": "Two names and a registration number, all removable without losing the instruction."
+  },
+  {
+    "id": "rewrite-claim-zh",
+    "task": "derive_rewrite",
+    "content": "保險索償個案：林志強，身份證 AB987654(3)，聯絡電話 5123 4567，已獲批核，請通知經紀。",
+    "forbidden": ["林志強", "AB987654(3)", "5123 4567"],
+    "must_retain": ["索償"],
+    "note": "A fluent rewrite that still names the claimant is the worst possible outcome here."
+  },
+  {
+    "id": "rewrite-enquiry-zh",
+    "task": "derive_rewrite",
+    "content": "李偉明先生來電查詢新辦公室傢俬報價，電郵 wm.lee@example-trading.hk，希望本月內回覆。",
+    "forbidden": ["李偉明", "wm.lee@example-trading.hk"],
+    "must_retain": ["報價"],
+    "note": "Tests whether the email address survives, which models frequently keep as 'context'."
+  },
+  {
+    "id": "rewrite-school-zh",
+    "task": "derive_rewrite",
+    "content": "家長黃美儀來電查詢學生記錄，學生身份證號碼 K470285(9)，家長聯絡電話 6123 4567，需按程序核實身分。",
+    "forbidden": ["黃美儀", "K470285(9)", "6123 4567"],
+    "must_retain": ["核實"],
+    "note": "A minor's record. The procedure is the point; nobody needs the numbers to follow it."
+  }
+]
