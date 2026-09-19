@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Duckbot</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Duckbot</h1>
+        <p id="status" class="status">正在啟動本機服務…</p>
+      </header>
+
+      <section>
+        <label for="input">貼上文件內容</label>
+        <textarea id="input" rows="8" placeholder="例如：客戶陳嘉雯，身份證 A123456(3)，電話 9876 5432。"></textarea>
+        <div class="actions">
+          <button id="classify">檢查敏感資料</button>
+          <button id="redact">遮蔽後預覽</button>
+        </div>
+      </section>
+
+      <section id="output-section" hidden>
+        <h2>將會送出嘅內容</h2>
+        <pre id="output"></pre>
+        <p id="note" class="note"></p>
+      </section>
+    </main>
+    <script src="main.js"></script>
+  </body>
+</html>

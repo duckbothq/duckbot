@@ -35,8 +35,12 @@ jobs:
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
           pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
-            ./packages/duckbot-memory ./packages/duckbot-eval
+            ./packages/duckbot-memory ./packages/duckbot-eval \
+            ./packages/duckbot-host
 
+      # Build tools stay out of this environment. PyInstaller is GPL-2.0-or-later and
+      # lives in the desktop workflow; installing it here would make the gate red for a
+      # dependency that never reaches a customer. See the register, section 5.6.
       - name: Test the gate itself
         run: |
           pip install pytest

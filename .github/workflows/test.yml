@@ -29,6 +29,7 @@ jobs:
             duckbot-gateway,
             duckbot-memory,
             duckbot-eval,
+            duckbot-host,
           ]
 
     steps:
@@ -49,7 +50,8 @@ jobs:
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
           pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
-            ./packages/duckbot-memory ./packages/duckbot-eval pytest
+            ./packages/duckbot-memory ./packages/duckbot-eval \
+            ./packages/duckbot-host pytest
 
       - name: Run tests
         working-directory: packages/${{ matrix.package }}
@@ -97,6 +99,8 @@ jobs:
             module: duckbot_memory
           - package: duckbot-eval
             module: duckbot_eval
+          - package: duckbot-host
+            module: duckbot_host
 
     steps:
       - uses: actions/checkout@v7
@@ -111,7 +115,8 @@ jobs:
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
           pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
-            ./packages/duckbot-memory ./packages/duckbot-eval
+            ./packages/duckbot-memory ./packages/duckbot-eval \
+            ./packages/duckbot-host
           pip install ruff==0.16.8 mypy==2.3.1
 
       # All three gates block. They were clean when this workflow was written, so

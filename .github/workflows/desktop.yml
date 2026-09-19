@@ -1,0 +1,167 @@
+name: desktop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/duckbot-host/**"
+      - "packages/duckbot-shell/**"
+      - ".github/workflows/desktop.yml"
+  pull_request:
+    paths:
+      - "packages/duckbot-host/**"
+      - "packages/duckbot-shell/**"
+      - ".github/workflows/desktop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The sidecar spec is broken on every platform when it is broken at all, and Linux
+  # runners start in seconds. This job exists to fail four minutes before the Windows one
+  # would, and it runs the frozen binary rather than only building it — a build that
+  # produces an executable which dies on startup is the failure this catches.
+  sidecar-smoke:
+    name: sidecar builds and answers (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install the host and its dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ./packages/duckbot-schemas
+          pip install ./packages/duckbot-core
+          pip install ./packages/duckbot-privacy ./packages/duckbot-memory
+          pip install ./packages/duckbot-host
+          pip install pyinstaller==6.22.3
+
+      - name: Freeze
+        working-directory: packages/duckbot-host
+        run: pyinstaller --noconfirm --clean duckbot-host.spec
+
+      - name: Answer a request
+        working-directory: packages/duckbot-host
+        shell: bash
+        run: |
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"health"}' \
+            | ./dist/duckbot-host > reply.json
+          cat reply.json
+          python -c "import json,sys; d=json.load(open('reply.json')); sys.exit(0 if d['result']['ok'] else 1)"
+
+  windows:
+    name: windows installer
+    runs-on: windows-latest
+
+    # A step's `if` cannot read the `secrets` context — GitHub's context table allows
+    # secrets in `steps.env` but not in `steps.if`, so a condition written against
+    # `secrets.X` there silently never fires. A job-level `env` *can* read secrets, so
+    # the presence of the certificate is turned into a plain flag here and the key itself
+    # stays out of the job environment, scoped to the one step that needs it.
+    env:
+      HAS_SIGNING_CERT: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE != '' }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # PyInstaller is GPL-2.0-or-later with a bootloader exception and is installed
+      # ONLY in this job. It must never enter the environment the licence gate scans —
+      # see duckbot_dependency_licence_register.md, section 5.6.
+      - name: Install the host and its dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ./packages/duckbot-schemas
+          pip install ./packages/duckbot-core
+          pip install ./packages/duckbot-privacy ./packages/duckbot-memory
+          pip install ./packages/duckbot-host
+          pip install pyinstaller==6.22.3
+
+      - name: Freeze the sidecar
+        working-directory: packages/duckbot-host
+        run: pyinstaller --noconfirm --clean duckbot-host.spec
+
+      - name: The sidecar answers before anything is built around it
+        working-directory: packages/duckbot-host
+        shell: pwsh
+        run: |
+          $reply = '{"jsonrpc":"2.0","id":1,"method":"health"}' | .\dist\duckbot-host.exe
+          Write-Host $reply
+          if (-not ($reply | ConvertFrom-Json).result.ok) { throw "the sidecar did not answer" }
+
+      - name: Put the sidecar where the shell expects it
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path packages\duckbot-shell\src-tauri\resources | Out-Null
+          Copy-Item packages\duckbot-host\dist\duckbot-host.exe packages\duckbot-shell\src-tauri\resources\
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Build the installer
+        working-directory: packages/duckbot-shell
+        run: |
+          npm install --global @tauri-apps/cli@^2
+          cargo tauri build
+
+      # Signing runs only when there is a certificate to sign with, and never for a pull
+      # request from a fork — a fork PR can change the workflow, and a workflow with
+      # access to a signing key is a workflow that can exfiltrate it. An unsigned build
+      # is a normal outcome here, not a failure.
+      - name: Sign the installer
+        if: >-
+          github.event_name != 'pull_request' &&
+          github.repository == 'duckbothq/duckbot' &&
+          env.HAS_SIGNING_CERT == 'true'
+        env:
+          SIGNING_CERTIFICATE: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE }}
+          SIGNING_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PASSWORD }}
+        shell: pwsh
+        run: |
+          $bytes = [Convert]::FromBase64String($env:SIGNING_CERTIFICATE)
+          $pfx = Join-Path $env:RUNNER_TEMP "duckbot-signing.pfx"
+          [IO.File]::WriteAllBytes($pfx, $bytes)
+          try {
+            $installer = Get-ChildItem -Recurse -Filter *.exe `
+              -Path packages\duckbot-shell\src-tauri\target\release\bundle\nsis |
+              Select-Object -First 1
+            & signtool sign /f $pfx /p $env:SIGNING_PASSWORD `
+              /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $installer.FullName
+          }
+          finally {
+            # The key never outlives the step that needed it, whatever happened in it.
+            Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+          }
+
+      # An unsigned build is a normal outcome until a certificate exists. Saying so in
+      # the log means nobody has to work out from an absent step why the installer warns.
+      - name: Say plainly whether this build is signed
+        shell: pwsh
+        run: |
+          if ($env:HAS_SIGNING_CERT -eq 'true') {
+            Write-Host "signed"
+          } else {
+            Write-Host "UNSIGNED: no certificate secret is configured. Windows will warn on install."
+          }
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: duckbot-windows-installer
+          path: packages/duckbot-shell/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: warn
