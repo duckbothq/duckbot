@@ -70,5 +70,5 @@ def main() -> int:
     # Anything that prints from here on — ours, a dependency's, a warning — goes to
     # stderr, where the shell can log it without it corrupting the wire.
     sys.stdout = sys.stderr
-    serve(protocol_in, protocol_out, session=Session())
+    serve(protocol_in, protocol_out, session=Session.production())
     return 0

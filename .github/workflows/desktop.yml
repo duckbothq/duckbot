@@ -4,11 +4,23 @@ on:
   push:
     branches: [main]
     paths:
+      - "packages/duckbot-schemas/**"
+      - "packages/duckbot-core/**"
+      - "packages/duckbot-privacy/**"
+      - "packages/duckbot-gateway/**"
+      - "packages/duckbot-memory/**"
+      - "packages/duckbot-engine/**"
       - "packages/duckbot-host/**"
       - "packages/duckbot-shell/**"
       - ".github/workflows/desktop.yml"
   pull_request:
     paths:
+      - "packages/duckbot-schemas/**"
+      - "packages/duckbot-core/**"
+      - "packages/duckbot-privacy/**"
+      - "packages/duckbot-gateway/**"
+      - "packages/duckbot-memory/**"
+      - "packages/duckbot-engine/**"
       - "packages/duckbot-host/**"
       - "packages/duckbot-shell/**"
       - ".github/workflows/desktop.yml"
@@ -41,7 +53,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
-          pip install ./packages/duckbot-privacy ./packages/duckbot-memory
+          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway ./packages/duckbot-memory
+          pip install ./packages/duckbot-engine
           pip install ./packages/duckbot-host
           pip install pyinstaller==6.22.3
 
@@ -55,7 +68,9 @@ jobs:
       # contain Chinese. See duckbot-host/tests/test_encoding.py.
       - name: Carry a Hong Kong document through the frozen binary
         working-directory: packages/duckbot-host
-        run: python scripts_smoke.py ./dist/duckbot-host
+        run: |
+          python scripts_smoke.py ./dist/duckbot-host
+          python scripts_product_smoke.py ./dist/duckbot-host
 
   windows:
     name: windows installer
@@ -84,7 +99,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
-          pip install ./packages/duckbot-privacy ./packages/duckbot-memory
+          pip install ./packages/duckbot-privacy ./packages/duckbot-gateway ./packages/duckbot-memory
+          pip install ./packages/duckbot-engine
           pip install ./packages/duckbot-host
           pip install pyinstaller==6.22.3
 
@@ -98,7 +114,9 @@ jobs:
       # rather than PowerShell so the console's own encoding cannot be what is tested.
       - name: Carry a Hong Kong document through the frozen sidecar
         working-directory: packages/duckbot-host
-        run: python scripts_smoke.py .\dist\duckbot-host.exe
+        run: |
+          python scripts_smoke.py .\dist\duckbot-host.exe
+          python scripts_product_smoke.py .\dist\duckbot-host.exe
 
       - name: Put the sidecar where the shell expects it
         shell: pwsh

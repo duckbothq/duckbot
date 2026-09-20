@@ -28,6 +28,11 @@ from duckbot_eval import EvaluationRunner, format_report, load_cases
 DEFAULT_DATASET = Path(__file__).parent / "datasets" / "hk_local_model_v1.json"
 
 
+def _configure_stdout() -> None:
+    """Keep Traditional Chinese reports independent of the Windows code page."""
+    sys.stdout.reconfigure(encoding="utf-8", errors="strict", newline="\n")
+
+
 def build_client(args: argparse.Namespace) -> tuple[object, str]:
     if args.ollama:
         return OllamaClient(
@@ -68,4 +73,5 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    _configure_stdout()
     raise SystemExit(main(sys.argv))

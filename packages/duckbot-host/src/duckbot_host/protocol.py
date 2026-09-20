@@ -30,7 +30,7 @@ METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 """Bumped when the shape of a request or response changes.
 
 The shell checks it at startup and refuses to run against a host it does not understand,

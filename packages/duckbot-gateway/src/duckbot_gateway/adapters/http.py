@@ -40,6 +40,7 @@ from ..errors import AdapterFailure
 from .base import Completion
 
 DEFAULT_TIMEOUT_S = 60.0
+OLLAMA_DEFAULT_TIMEOUT_S = 180.0
 
 
 @dataclass(frozen=True)
@@ -260,7 +261,7 @@ class OllamaClient:
         model: str,
         base_url: str = "http://localhost:11434",
         transport: HttpTransport | None = None,
-        timeout_s: float = DEFAULT_TIMEOUT_S,
+        timeout_s: float = OLLAMA_DEFAULT_TIMEOUT_S,
     ) -> None:
         self._url = f"{base_url.rstrip('/')}/api/chat"
         self._model = model

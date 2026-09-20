@@ -20,6 +20,7 @@ import pytest
 
 from duckbot_gateway import AdapterFailure
 from duckbot_gateway.adapters.http import (
+    OLLAMA_DEFAULT_TIMEOUT_S,
     AnthropicClient,
     HttpResponse,
     OllamaClient,
@@ -37,6 +38,7 @@ class FakeTransport:
         self.url: str | None = None
         self.headers: dict[str, str] = {}
         self.payload: dict[str, Any] = {}
+        self.timeout_s: float | None = None
 
     def post(
         self,
@@ -49,6 +51,7 @@ class FakeTransport:
         self.url = url
         self.headers = dict(headers)
         self.payload = dict(payload)
+        self.timeout_s = timeout_s
         return self.response
 
 
@@ -153,6 +156,7 @@ class TestOllama:
         completion = client.chat("你好")
         assert transport.url == "http://localhost:11434/api/chat"
         assert transport.payload["stream"] is False
+        assert transport.timeout_s == OLLAMA_DEFAULT_TIMEOUT_S
         assert completion.text == "你好"
         assert (completion.tokens_in, completion.tokens_out) == (7, 4)
         assert completion.usage_reported

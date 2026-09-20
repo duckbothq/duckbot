@@ -63,8 +63,8 @@ It takes content that has already been classified and redacted, as `PreparedCont
 result = privacy.redact(text, content_id="doc-1")
 content = PreparedContent(
     classification=result.classification,
-    local_text=text,                       # the real thing — local models only
-    outbound_text=result.redacted_text,    # what may leave
+    local_text=text,  # the real thing — local models only
+    outbound_text=result.redacted_text,  # what may leave
     placeholder_tokens=tuple(result.tokens),
     placeholder_map=result.placeholder_map,
 )

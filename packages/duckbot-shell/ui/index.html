@@ -7,25 +7,97 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <h1>Duckbot</h1>
-        <p id="status" class="status">正在啟動本機服務…</p>
-      </header>
+    <header class="topbar">
+      <div><h1>Duckbot</h1><p>私隱優先 AI 工作台 / Privacy-first AI workspace</p></div>
+      <p id="status" class="status">正在啟動本機服務… / Starting local service…</p>
+    </header>
 
-      <section>
-        <label for="input">貼上文件內容</label>
-        <textarea id="input" rows="8" placeholder="例如：客戶陳嘉雯，身份證 A123456(3)，電話 9876 5432。"></textarea>
-        <div class="actions">
-          <button id="classify">檢查敏感資料</button>
-          <button id="redact">遮蔽後預覽</button>
+    <nav aria-label="主要頁面 / Main sections">
+      <button class="nav active" data-page="work">工作 / Task</button>
+      <button class="nav" data-page="history">記錄 / History</button>
+      <button class="nav" data-page="settings">設定 / Settings</button>
+    </nav>
+
+    <main>
+      <section id="page-work" class="page active">
+        <div class="card">
+          <h2>建立工作 / Start a task</h2>
+          <label for="instruction">指示 / Instruction</label>
+          <textarea id="instruction" rows="7" placeholder="例如：根據客戶文件草擬跟進摘要。 / Example: Draft a follow-up summary from the client file."></textarea>
+          <div class="grid two">
+            <label>本機文件（可選） / Local file (optional)
+              <select id="context-file"><option value="">不使用文件 / No file</option></select>
+            </label>
+            <label>行動風險 / Action risk
+              <select id="risk-class">
+                <option value="read">只讀 / Read</option>
+                <option value="write">寫入 / Write</option>
+                <option value="external">對外行動 / External action</option>
+                <option value="financial">財務 / Financial</option>
+                <option value="destructive">刪除或破壞 / Destructive</option>
+              </select>
+            </label>
+          </div>
+          <label for="action-description">需要批准的行動說明 / Approval description</label>
+          <input id="action-description" placeholder="例如：向供應商支付港幣 500 元 / Pay supplier HKD 500" />
+          <button id="prepare" class="primary">檢查及預覽 / Check & preview</button>
         </div>
+
+        <section id="preview" class="card" hidden>
+          <div class="section-title"><h2>傳送前預覽 / Pre-send preview</h2><span id="policy-badge" class="badge"></span></div>
+          <dl class="facts">
+            <div><dt>目的地 / Destination</dt><dd id="destination"></dd></div>
+            <div><dt>敏感程度 / Sensitivity</dt><dd id="sensitivity"></dd></div>
+            <div><dt>預計成本 / Estimated cost</dt><dd id="estimated-cost"></dd></div>
+          </dl>
+          <h3>已移除或取代 / Removed or replaced</h3>
+          <div id="redactions" class="chips"></div>
+          <h3>將離開電腦的內容 / Content leaving this computer</h3>
+          <pre id="outbound"></pre>
+          <p id="policy-note" class="note"></p>
+          <button id="execute" class="primary">確認並執行 / Confirm & run</button>
+        </section>
+
+        <section id="approval" class="card warning" hidden>
+          <h2>需要人工批准 / Human approval required</h2>
+          <p id="approval-action"></p><p id="approval-cost"></p>
+          <div class="actions"><button id="approve" class="primary">批准 / Approve</button><button id="refuse" class="danger">拒絕 / Refuse</button></div>
+        </section>
+
+        <section id="result" class="card" hidden>
+          <h2>結果 / Result</h2><pre id="result-text"></pre><p id="result-meta" class="note"></p>
+        </section>
       </section>
 
-      <section id="output-section" hidden>
-        <h2>將會送出嘅內容</h2>
-        <pre id="output"></pre>
-        <p id="note" class="note"></p>
+      <section id="page-history" class="page">
+        <div class="card"><div class="section-title"><h2>近期工作 / Recent tasks</h2><button id="refresh-history">重新整理 / Refresh</button></div><div id="task-list" class="list"></div></div>
+        <div class="card"><div class="section-title"><h2>審計時間線 / Audit timeline</h2><span id="audit-state" class="badge"></span></div><div id="audit-list" class="list"></div></div>
+      </section>
+
+      <section id="page-settings" class="page">
+        <form id="settings-form" class="card">
+          <h2>模型及預算 / Model & budget</h2>
+          <div class="grid two">
+            <label>供應者 / Provider<select id="provider"><option value="offline">本機離線示範 / Local offline demo</option><option value="ollama">Ollama（本機 / local）</option><option value="openai">OpenAI-compatible</option><option value="anthropic">Anthropic</option></select></label>
+            <label>模型名稱 / Model<input id="provider-model" /></label>
+            <label>本機端點 / Local endpoint<input id="local-endpoint" /></label>
+            <label>本機模型 / Local model<input id="local-model" /></label>
+            <label>託管端點（可留空） / Hosted endpoint<input id="hosted-endpoint" /></label>
+            <label>API 金鑰 / API key<input id="api-key" type="password" autocomplete="off" placeholder="不會顯示已儲存金鑰 / Saved key is never shown" /></label>
+            <label>輸入價格 / Input per 1M tokens<input id="input-price" /></label>
+            <label>輸出價格 / Output per 1M tokens<input id="output-price" /></label>
+            <label>價格來源 / Price source<input id="price-source" /></label>
+            <label>核對日期 / Checked date<input id="price-date" type="date" /></label>
+            <label>每項工作上限（USD） / Per-task limit<input id="task-budget" /></label>
+            <label>每月上限（USD） / Monthly limit<input id="monthly-budget" /></label>
+            <label>內容 token 上限 / Context tokens<input id="context-tokens" /></label>
+            <label>回覆預留 token / Reply reserve<input id="reply-tokens" /></label>
+          </div>
+          <h2>本機文件 / Local files</h2>
+          <div class="grid two"><label>已選資料夾（絕對路徑） / Selected folder<input id="connector-folder" /></label><label>文字編碼 / Text encoding<select id="connector-encoding"><option value="utf-8">UTF-8</option><option value="utf-8-sig">UTF-8 with BOM</option><option value="cp950">繁體中文 CP950（明確選擇）</option></select></label></div>
+          <p id="secret-state" class="note"></p>
+          <div class="actions"><button type="submit" class="primary">儲存設定 / Save settings</button><button type="button" id="delete-key">刪除已儲存金鑰 / Delete saved key</button></div>
+        </form>
       </section>
     </main>
     <script src="main.js"></script>

@@ -15,6 +15,11 @@ from duckbot_privacy.corpus import load_documents
 from duckbot_privacy.recall import score
 
 
+def _configure_stdout() -> None:
+    """Keep Traditional Chinese reports independent of the Windows code page."""
+    sys.stdout.reconfigure(encoding="utf-8", errors="strict", newline="\n")
+
+
 def main(argv: list[str]) -> int:
     path = Path(argv[1]) if len(argv) > 1 else Path("corpus/hk_business_v1.json")
     documents = load_documents(path)
@@ -25,4 +30,5 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    _configure_stdout()
     raise SystemExit(main(sys.argv))

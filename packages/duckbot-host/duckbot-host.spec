@@ -33,6 +33,8 @@ analysis = Analysis(
         "duckbot_core",
         "duckbot_privacy",
         "duckbot_memory",
+        "duckbot_gateway",
+        "duckbot_engine",
     ],
     hookspath=[],
     runtime_hooks=[],

@@ -1,21 +1,16 @@
 [project]
-name = "duckbot-host"
+name = "duckbot-engine"
 version = "0.1.0"
-description = "Duckbot host process — JSON-RPC over stdio for the desktop shell"
+description = "Duckbot task engine — privacy-preserving composition of memory, policy and models"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 dependencies = [
     "duckbot-schemas",
     "duckbot-core",
     "duckbot-privacy",
-    "duckbot-memory",
     "duckbot-gateway",
-    "duckbot-engine",
-    "pydantic>=2,<3",
+    "duckbot-memory",
 ]
-
-[project.scripts]
-duckbot-host = "duckbot_host.__main__:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -25,7 +20,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-duckbot_host = ["py.typed"]
+duckbot_engine = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -36,11 +31,11 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "DTZ", "RUF"]
-ignore = ["E501", "EXE002", "RUF001", "RUF002", "RUF003"]
+ignore = ["E501", "RUF001", "RUF002", "RUF003"]
 
 [tool.mypy]
 python_version = "3.12"
-packages = ["duckbot_host"]
+packages = ["duckbot_engine"]
 mypy_path = "src"
 strict = true
 warn_unused_ignores = true

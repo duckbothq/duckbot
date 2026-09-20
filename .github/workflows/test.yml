@@ -28,6 +28,7 @@ jobs:
             duckbot-privacy,
             duckbot-gateway,
             duckbot-memory,
+            duckbot-engine,
             duckbot-eval,
             duckbot-host,
           ]
@@ -50,7 +51,9 @@ jobs:
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
           pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
-            ./packages/duckbot-memory ./packages/duckbot-eval \
+            ./packages/duckbot-memory
+          pip install ./packages/duckbot-engine
+          pip install ./packages/duckbot-eval \
             ./packages/duckbot-host pytest
 
       - name: Run tests
@@ -97,6 +100,8 @@ jobs:
             module: duckbot_gateway
           - package: duckbot-memory
             module: duckbot_memory
+          - package: duckbot-engine
+            module: duckbot_engine
           - package: duckbot-eval
             module: duckbot_eval
           - package: duckbot-host
@@ -115,7 +120,9 @@ jobs:
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
           pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
-            ./packages/duckbot-memory ./packages/duckbot-eval \
+            ./packages/duckbot-memory
+          pip install ./packages/duckbot-engine
+          pip install ./packages/duckbot-eval \
             ./packages/duckbot-host
           pip install ruff==0.16.8 mypy==2.3.1
 

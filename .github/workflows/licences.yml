@@ -24,6 +24,8 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: dtolnay/rust-toolchain@stable
+
       # EVERY package, not just the schemas. The gate scans the resolved environment,
       # so a package that is not installed contributes no dependencies to scan — and a
       # gate that silently covers less than people believe is worse than an obvious gap.
@@ -35,7 +37,9 @@ jobs:
           pip install ./packages/duckbot-schemas
           pip install ./packages/duckbot-core
           pip install ./packages/duckbot-privacy ./packages/duckbot-gateway \
-            ./packages/duckbot-memory ./packages/duckbot-eval \
+            ./packages/duckbot-memory
+          pip install ./packages/duckbot-engine
+          pip install ./packages/duckbot-eval \
             ./packages/duckbot-host
 
       # Build tools stay out of this environment. PyInstaller is GPL-2.0-or-later and
@@ -50,7 +54,10 @@ jobs:
       # A direct-only scan would miss a permissive wrapper around a copyleft binary,
       # which is the case duckbot_dependency_licence_register.md documents.
       - name: Check licences
-        run: python scripts/check_licences.py --write-notices THIRD_PARTY_LICENSES
+        run: >-
+          python scripts/check_licences.py
+          --cargo-manifest packages/duckbot-shell/src-tauri/Cargo.toml
+          --write-notices THIRD_PARTY_LICENSES
 
       - name: Generate SBOM
         run: |

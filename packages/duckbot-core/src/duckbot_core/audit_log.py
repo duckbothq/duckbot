@@ -101,6 +101,8 @@ class AuditLog:
             ]
             if e.destination:
                 parts.append(f"-> {e.destination}")
+            if e.target:
+                parts.append(f"target={e.target}")
             if e.policy_action:
                 parts.append(f"policy={e.policy_action.value}")
             if e.sensitivity is not None:
