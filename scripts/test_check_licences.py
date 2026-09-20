@@ -13,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from check_licences import _classify, _normalise  # noqa: E402
+from check_licences import _classify, _normalise
 
 
 @pytest.mark.parametrize(
@@ -39,7 +39,9 @@ def test_denied_families_fail(licence: str) -> None:
     assert ok is False, f"{licence} must not pass the gate"
 
 
-@pytest.mark.parametrize("licence", ["LGPL-3.0", "GNU Lesser General Public License v3"])
+@pytest.mark.parametrize(
+    "licence", ["LGPL-3.0", "GNU Lesser General Public License v3"]
+)
 def test_lgpl_requires_a_human_decision(licence: str) -> None:
     ok, reason = _classify(licence)
     assert ok is False
@@ -67,6 +69,9 @@ def test_gpl_fails(licence: str) -> None:
         "Mozilla Public License 2.0 (MPL 2.0)",
         "Apache-2.0 OR BSD-2-Clause",
         "MIT OR Apache-2.0",
+        "MIT/Apache-2.0",
+        "Apache-2.0 WITH LLVM-exception",
+        "(MIT OR Apache-2.0) AND Unicode-3.0",
         "Python Software Foundation License",
     ],
 )
@@ -96,4 +101,7 @@ def test_and_expression_requires_every_term() -> None:
 
 
 def test_normalise_strips_trailing_parenthetical() -> None:
-    assert _normalise("Mozilla Public License 2.0 (MPL 2.0)") == "mozilla public license 2.0"
+    assert (
+        _normalise("Mozilla Public License 2.0 (MPL 2.0)")
+        == "mozilla public license 2.0"
+    )

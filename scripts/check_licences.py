@@ -18,15 +18,20 @@ Usage::
 
     python scripts/check_licences.py                       # check, exit 1 on violation
     python scripts/check_licences.py --write-notices FILE  # also emit THIRD_PARTY_LICENSES
+    python scripts/check_licences.py --cargo-manifest packages/duckbot-shell/src-tauri/Cargo.toml
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from importlib import metadata
+from pathlib import Path
+from typing import Any
 
 # Permissive, and safe inside an Apache-2.0 distribution.
 ALLOWED = {
@@ -47,7 +52,11 @@ ALLOWED = {
     "unlicense",
     "public domain",
     "cc0-1.0",
+    "0bsd",
+    "mit-0",
     "zlib",
+    "unicode-3.0",
+    "apache-2.0 with llvm-exception",
     "apache-2.0 or mit",
     "mit or apache-2.0",
 }
@@ -80,6 +89,20 @@ KNOWN_OVERRIDES: dict[str, str] = {
     # "example-package": "MIT  # metadata omits the field; LICENSE file checked 2026-09-18",
 }
 
+# Cargo packages with a reviewed choice from an OR expression. ``r-efi`` offers MIT,
+# Apache-2.0, or LGPL-2.1-or-later; Duckbot takes the MIT alternative. Recording that
+# choice avoids silently treating an LGPL static-linking question as resolved by a regex.
+CARGO_KNOWN_OVERRIDES: dict[tuple[str, str], str] = {
+    (
+        "r-efi",
+        "5.3.0",
+    ): "MIT  # permissive alternative selected; crate metadata checked 2026-09-20",
+    (
+        "r-efi",
+        "6.0.0",
+    ): "MIT  # permissive alternative selected; crate metadata checked 2026-09-20",
+}
+
 
 @dataclass(frozen=True)
 class Finding:
@@ -97,12 +120,61 @@ def _normalise(raw: str) -> str:
     every cosmetic variant.
     """
     text = re.sub(r"\s+", " ", raw.strip().lower().rstrip("."))
-    text = re.sub(r"\s*\([^)]*\)\s*$", "", text).strip()
+    text = re.sub(r"\s+\([^)]*\)\s*$", "", text).strip()
     return text
 
 
-def _is_allowed_term(term: str) -> bool:
-    return _normalise(term) in ALLOWED
+def _strip_outer_parentheses(value: str) -> str:
+    text = value.strip()
+    while text.startswith("(") and text.endswith(")"):
+        depth = 0
+        closes_at_end = False
+        for index, character in enumerate(text):
+            if character == "(":
+                depth += 1
+            elif character == ")":
+                depth -= 1
+                if depth == 0:
+                    closes_at_end = index == len(text) - 1
+                    break
+        if not closes_at_end:
+            break
+        text = text[1:-1].strip()
+    return text
+
+
+def _split_top_level(value: str, separator: str) -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    index = 0
+    while index < len(value):
+        character = value[index]
+        if character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+        elif depth == 0 and value.startswith(separator, index):
+            parts.append(value[start:index].strip())
+            index += len(separator)
+            start = index
+            continue
+        index += 1
+    parts.append(value[start:].strip())
+    return parts
+
+
+def _expression_is_allowed(value: str) -> bool:
+    expression = _strip_outer_parentheses(value)
+    if expression in ALLOWED:
+        return True
+    alternatives = _split_top_level(expression, " or ")
+    if len(alternatives) > 1:
+        return any(_expression_is_allowed(term) for term in alternatives)
+    requirements = _split_top_level(expression, " and ")
+    if len(requirements) > 1:
+        return all(_expression_is_allowed(term) for term in requirements)
+    return False
 
 
 def _licence_for(dist: metadata.Distribution) -> str:
@@ -123,7 +195,11 @@ def _licence_for(dist: metadata.Distribution) -> str:
     if legacy and len(legacy) < 200 and "\n" not in legacy:
         return str(legacy)
 
-    classifiers = [c for c in dist.metadata.get_all("Classifier") or [] if c.startswith("License ::")]
+    classifiers = [
+        c
+        for c in dist.metadata.get_all("Classifier") or []
+        if c.startswith("License ::")
+    ]
     if classifiers:
         return "; ".join(c.split(" :: ")[-1] for c in classifiers)
 
@@ -135,6 +211,10 @@ def _licence_for(dist: metadata.Distribution) -> str:
 def _classify(licence: str) -> tuple[bool, str]:
     """Return ``(ok, reason)`` for one licence string."""
     norm = _normalise(licence)
+    # Several established crates still publish legacy ``MIT/Apache-2.0`` metadata.
+    # Cargo treats that as a choice, so normalise it to the equivalent SPDX-style OR.
+    norm = re.sub(r"\s*/\s*", " or ", norm)
+    norm = re.sub(r"\s*;\s*", " and ", norm)
 
     for pattern in DENIED_PATTERNS:
         if re.search(pattern, norm):
@@ -142,9 +222,7 @@ def _classify(licence: str) -> tuple[bool, str]:
             # permissive alternative. It still stops here rather than passing silently:
             # the choice is a decision someone should make and record, not one a regex
             # should make on their behalf.
-            if " or " in norm and any(
-                _is_allowed_term(t) for t in re.split(r"\s+or\s+", norm) if t
-            ):
+            if " or " in norm and _expression_is_allowed(norm):
                 return False, (
                     "dual-licensed with a denied family; the permissive alternative may "
                     "be usable, but record that choice in KNOWN_OVERRIDES rather than "
@@ -154,35 +232,31 @@ def _classify(licence: str) -> tuple[bool, str]:
 
     for pattern in DECISION_REQUIRED_PATTERNS:
         if re.search(pattern, norm):
-            return False, "LGPL requires a human linking decision; see the register, Section 2"
+            return (
+                False,
+                "LGPL requires a human linking decision; see the register, Section 2",
+            )
 
-    if norm in ALLOWED:
-        return True, "allowed"
-
-    # SPDX expressions. "A OR B" lets us choose, so one permissive alternative is enough.
-    # "A AND B" obliges us to both, so every term must be acceptable. Trove classifiers
-    # separated by ";" are a list of licences that all apply, so they behave like AND.
-    if " or " in norm:
-        alternatives = [t for t in re.split(r"\s+or\s+", norm) if t]
-        if any(_is_allowed_term(t) for t in alternatives):
-            return True, "allowed (one permissive alternative in an OR expression)"
-    for separator in (r"\s+and\s+", r";"):
-        terms = [t for t in re.split(separator, norm) if t.strip()]
-        if len(terms) > 1 and all(_is_allowed_term(t) for t in terms):
-            return True, "allowed (every term acceptable)"
+    if _expression_is_allowed(norm):
+        return True, "allowed (licence or permissive SPDX expression)"
 
     for pattern in GPL_PATTERNS:
         if re.search(pattern, norm):
             return False, "GPL family is not compatible with an Apache-2.0 distribution"
 
-    return False, "unrecognised licence; add it to ALLOWED or KNOWN_OVERRIDES after checking"
+    return (
+        False,
+        "unrecognised licence; add it to ALLOWED or KNOWN_OVERRIDES after checking",
+    )
 
 
 def scan() -> tuple[list[Finding], list[tuple[str, str, str]]]:
     failures: list[Finding] = []
     inventory: list[tuple[str, str, str]] = []
 
-    for dist in sorted(metadata.distributions(), key=lambda d: (d.metadata["Name"] or "").lower()):
+    for dist in sorted(
+        metadata.distributions(), key=lambda d: (d.metadata["Name"] or "").lower()
+    ):
         name = dist.metadata["Name"]
         if not name:
             continue
@@ -197,22 +271,99 @@ def scan() -> tuple[list[Finding], list[tuple[str, str, str]]]:
     return failures, inventory
 
 
+def scan_cargo(manifest: Path) -> tuple[list[Finding], list[tuple[str, str, str]]]:
+    """Scan every crate in the manifest's locked, resolved dependency graph."""
+    try:
+        completed = subprocess.run(
+            [
+                "cargo",
+                "metadata",
+                "--format-version",
+                "1",
+                "--locked",
+                "--manifest-path",
+                str(manifest.resolve()),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="strict",
+        )
+        payload: Any = json.loads(completed.stdout)
+    except (
+        OSError,
+        subprocess.CalledProcessError,
+        UnicodeError,
+        json.JSONDecodeError,
+    ) as exc:
+        raise RuntimeError("could not read locked Cargo dependency metadata") from exc
+
+    packages = payload.get("packages") if isinstance(payload, dict) else None
+    if not isinstance(packages, list):
+        raise TypeError("Cargo metadata did not contain a package list")
+
+    failures: list[Finding] = []
+    inventory: list[tuple[str, str, str]] = []
+    for package in sorted(
+        packages,
+        key=lambda item: (
+            str(item.get("name", "")).casefold(),
+            str(item.get("version", "")),
+        ),
+    ):
+        if not isinstance(package, dict):
+            raise TypeError("Cargo metadata contained an invalid package")
+        name = str(package.get("name") or "unknown")
+        version = str(package.get("version") or "?")
+        raw_licence = CARGO_KNOWN_OVERRIDES.get((name, version)) or str(
+            package.get("license") or "UNKNOWN"
+        )
+        licence = raw_licence.split("#")[0].strip()
+        inventory.append((name, version, licence))
+        ok, reason = _classify(licence)
+        if not ok:
+            failures.append(Finding(name, version, licence, f"Cargo crate: {reason}"))
+    return failures, inventory
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write-notices", metavar="PATH")
+    parser.add_argument("--cargo-manifest", type=Path)
     args = parser.parse_args()
 
     failures, inventory = scan()
+    cargo_inventory: list[tuple[str, str, str]] = []
+    if args.cargo_manifest:
+        cargo_failures, cargo_inventory = scan_cargo(args.cargo_manifest)
+        failures.extend(cargo_failures)
 
     if args.write_notices:
         with open(args.write_notices, "w", encoding="utf-8") as fh:
             fh.write("Third-party dependencies bundled with or required by Duckbot.\n")
             fh.write("Generated by scripts/check_licences.py. Do not edit by hand.\n\n")
-            for name, version, licence in inventory:
-                fh.write(f"{name} {version}\n    {licence}\n\n")
-        print(f"wrote {args.write_notices} ({len(inventory)} distributions)")
+            fh.write("Python distributions\n")
+            fh.write("====================\n\n")
+            fh.writelines(
+                f"{name} {version}\n    {licence}\n\n"
+                for name, version, licence in inventory
+            )
+            if cargo_inventory:
+                fh.write("Rust crates (locked dependency graph)\n")
+                fh.write("=====================================\n\n")
+                fh.writelines(
+                    f"{name} {version}\n    {licence}\n\n"
+                    for name, version, licence in cargo_inventory
+                )
+        print(
+            f"wrote {args.write_notices} "
+            f"({len(inventory)} Python distributions, {len(cargo_inventory)} Rust crates)"
+        )
 
     print(f"checked {len(inventory)} distributions in the resolved environment")
+    if args.cargo_manifest:
+        print(f"checked {len(cargo_inventory)} crates in the locked Cargo graph")
 
     if failures:
         print("\nLICENCE GATE FAILED\n", file=sys.stderr)
