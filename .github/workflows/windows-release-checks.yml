@@ -1,0 +1,22 @@
+name: windows-release-checks
+on:
+  push:
+    branches: [main, prepare-signed-windows-release]
+    paths:
+      - 'packages/duckbot-shell/scripts/**'
+      - '.github/workflows/windows-release-checks.yml'
+  pull_request:
+    paths:
+      - 'packages/duckbot-shell/scripts/**'
+      - '.github/workflows/windows-release-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  signature-gate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Exercise native trust, publisher and tamper rejection
+        shell: pwsh
+        run: ./packages/duckbot-shell/scripts/test-windows-signature.ps1

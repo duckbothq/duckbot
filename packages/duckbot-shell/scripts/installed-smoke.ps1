@@ -1,20 +1,40 @@
+param(
+  [string]$InstallerPath,
+  [switch]$RequireSignature,
+  [string]$SignerThumbprint,
+  [string]$Publisher,
+  [switch]$ReturnSignatureEvidence
+)
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path "$PSScriptRoot\..\..\..").Path
-$installer = @(Get-ChildItem "$repo\packages\duckbot-shell\src-tauri\target\release\bundle\nsis\*.exe")
+$installer = @(if ($InstallerPath) { Get-Item -LiteralPath $InstallerPath } else {
+  Get-ChildItem "$repo\packages\duckbot-shell\src-tauri\target\release\bundle\nsis\*.exe"
+})
 if ($installer.Count -ne 1) { throw 'Expected exactly one NSIS installer' }
-$destination = Join-Path $env:RUNNER_TEMP 'DuckbotInstalledSmoke'
+if ($RequireSignature) {
+  . "$PSScriptRoot\windows-signature.ps1"
+  Assert-DuckbotSignature -Path $installer[0].FullName -Thumbprint $SignerThumbprint -Publisher $Publisher | Out-Null
+}
+$temporaryRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
+$destination = Join-Path $temporaryRoot ('DuckbotInstalledSmoke-' + [guid]::NewGuid())
 $install = Start-Process -FilePath $installer[0].FullName -ArgumentList @('/S', "/D=$destination") -Wait -PassThru
 if ($install.ExitCode -ne 0) { throw "Installer failed with exit $($install.ExitCode)" }
 $hostBinary = Join-Path $destination 'duckbot-host.exe'
 $shellBinary = Join-Path $destination 'duckbot-shell.exe'
 if (!(Test-Path $hostBinary)) { throw 'Installed sidecar is missing from the resource root' }
 if (!(Test-Path $shellBinary)) { throw 'Installed desktop executable is missing' }
-$env:DUCKBOT_DATA_DIR = Join-Path $env:RUNNER_TEMP 'DuckbotInstalledSmokeData'
-python "$repo\packages\duckbot-host\scripts_smoke.py" $hostBinary
+$payloadEvidence = @()
+if ($RequireSignature) {
+  $payloadEvidence += Assert-DuckbotSignature -Path $hostBinary -Thumbprint $SignerThumbprint -Publisher $Publisher
+  $payloadEvidence += Assert-DuckbotSignature -Path $shellBinary -Thumbprint $SignerThumbprint -Publisher $Publisher
+}
+$env:DUCKBOT_DATA_DIR = Join-Path $temporaryRoot ('DuckbotInstalledSmokeData-' + [guid]::NewGuid())
+New-Item -ItemType Directory -Path $env:DUCKBOT_DATA_DIR | Out-Null
+python "$repo\packages\duckbot-host\scripts_smoke.py" $hostBinary | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'Installed privacy smoke failed' }
-python "$repo\packages\duckbot-host\scripts_product_smoke.py" $hostBinary
+python "$repo\packages\duckbot-host\scripts_product_smoke.py" $hostBinary | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'Installed task smoke failed' }
-$startupError = Join-Path $env:RUNNER_TEMP 'DuckbotInstalledSmokeStartup.txt'
+$startupError = Join-Path $env:DUCKBOT_DATA_DIR 'startup-error.txt'
 $desktop = Start-Process -FilePath $shellBinary -PassThru -RedirectStandardError $startupError
 try {
   # Tauri creates its window before setup finishes spawning and handshaking the
@@ -45,3 +65,4 @@ try {
 } finally {
   Stop-Process -Id $desktop.Id -Force -ErrorAction SilentlyContinue
 }
+if ($ReturnSignatureEvidence) { $payloadEvidence }
