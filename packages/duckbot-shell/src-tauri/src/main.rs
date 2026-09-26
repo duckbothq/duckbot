@@ -35,39 +35,68 @@ fn sidecar_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map(|dir| dir.join(name))
 }
 
-#[tauri::command]
-fn health(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
-    state.sidecar.call("health", serde_json::json!({}))
+async fn call_host(
+    sidecar: Arc<Sidecar>,
+    method: String,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || sidecar.call(&method, params))
+        .await
+        .map_err(|_| "the local service worker stopped unexpectedly".to_string())?
 }
 
 #[tauri::command]
-fn redact(state: tauri::State<'_, AppState>, text: String) -> Result<serde_json::Value, String> {
-    state
-        .sidecar
-        .call("redact", serde_json::json!({ "text": text }))
+async fn health(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    call_host(
+        Arc::clone(&state.sidecar),
+        "health".into(),
+        serde_json::json!({}),
+    )
+    .await
 }
 
 #[tauri::command]
-fn restore(
+async fn redact(
+    state: tauri::State<'_, AppState>,
+    text: String,
+) -> Result<serde_json::Value, String> {
+    call_host(
+        Arc::clone(&state.sidecar),
+        "redact".into(),
+        serde_json::json!({ "text": text }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn restore(
     state: tauri::State<'_, AppState>,
     redaction_id: String,
     text: String,
 ) -> Result<serde_json::Value, String> {
-    state.sidecar.call(
-        "restore",
+    call_host(
+        Arc::clone(&state.sidecar),
+        "restore".into(),
         serde_json::json!({ "redaction_id": redaction_id, "text": text }),
     )
+    .await
 }
 
 #[tauri::command]
-fn classify(state: tauri::State<'_, AppState>, text: String) -> Result<serde_json::Value, String> {
-    state
-        .sidecar
-        .call("classify", serde_json::json!({ "text": text }))
+async fn classify(
+    state: tauri::State<'_, AppState>,
+    text: String,
+) -> Result<serde_json::Value, String> {
+    call_host(
+        Arc::clone(&state.sidecar),
+        "classify".into(),
+        serde_json::json!({ "text": text }),
+    )
+    .await
 }
 
 #[tauri::command]
-fn rpc(
+async fn rpc(
     state: tauri::State<'_, AppState>,
     method: String,
     params: serde_json::Value,
@@ -75,6 +104,7 @@ fn rpc(
     const ALLOWED: &[&str] = &[
         "task_prepare",
         "task_execute",
+        "task_cancel",
         "approval_decide",
         "tasks_list",
         "audit_list",
@@ -89,7 +119,7 @@ fn rpc(
     if !params.is_object() {
         return Err("RPC params must be an object".into());
     }
-    state.sidecar.call(&method, params)
+    call_host(Arc::clone(&state.sidecar), method, params).await
 }
 
 fn main() {

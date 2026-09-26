@@ -14,6 +14,22 @@ from duckbot_host.secret_store import (
 from duckbot_host.settings import DesktopSettings, SettingsRepository
 
 
+def test_failed_replacement_preserves_previous_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository = SettingsRepository(tmp_path / "settings.json")
+    previous = repository.update({"per_task_budget_usd": "2.50"})
+
+    def fail_replace(*_: object) -> None:
+        raise OSError("simulated disk failure")
+
+    monkeypatch.setattr("duckbot_host.atomic_file.os.replace", fail_replace)
+    with pytest.raises(OSError, match="disk failure"):
+        repository.update({"per_task_budget_usd": "5.00"})
+    assert repository.load() == previous
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["settings.json"]
+
+
 class ReversibleTestProtector:
     """Test double for DPAPI; production never selects this implementation."""
 

@@ -19,6 +19,8 @@ from ctypes import wintypes
 from pathlib import Path
 from typing import Any, Protocol
 
+from .atomic_file import atomic_write
+
 _KEY_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _ENTROPY = b"Duckbot desktop provider key v1"
 _CRYPTPROTECT_UI_FORBIDDEN = 0x01
@@ -147,7 +149,7 @@ class DpapiSecretStore:
         target = self._path(name)
         target.parent.mkdir(parents=True, exist_ok=True)
         encrypted = self._protector.protect(secret.encode("utf-8"))
-        target.write_bytes(encrypted)
+        atomic_write(target, encrypted)
 
     def get(self, name: str) -> str | None:
         target = self._path(name)

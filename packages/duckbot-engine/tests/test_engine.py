@@ -29,6 +29,58 @@ from duckbot_schemas import (
 
 from duckbot_engine import ApprovalPending, TaskEngine, TaskRequest, TaskResult
 
+
+@pytest.mark.parametrize("paused", [False, True])
+def test_discarded_preview_cannot_send_or_approve(paused: bool) -> None:
+    client = EchoClient("offline")
+    local = descriptor("offline", ModelTier.LOCAL, SensitivityLevel.LOCAL_ONLY)
+    registry = ModelRegistry()
+    registry.register_local(LocalAdapter(local, client))
+    runtime = engine(registry)
+    preview = runtime.prepare(
+        TaskRequest("Draft a payment", "owner", risk_class=RiskClass.FINANCIAL)
+    )
+    outcome = runtime.execute(preview.task_id) if paused else None
+    assert runtime.cancel(preview.task_id).state is TaskState.CANCELLED
+    assert runtime.cancel(preview.task_id).state is TaskState.CANCELLED
+    with pytest.raises(ValueError):
+        runtime.execute(preview.task_id)
+    if isinstance(outcome, ApprovalPending):
+        with pytest.raises(ValueError):
+            runtime.decide(outcome.approval.id, approved=True, decided_by="owner")
+        assert runtime.pending_approvals(preview.task_id) == []
+    assert client.calls == []
+    runtime.verify_audit()
+
+
+def test_action_description_and_decision_are_redacted_in_persistent_records() -> None:
+    client = EchoClient("offline")
+    local = descriptor("offline", ModelTier.LOCAL, SensitivityLevel.LOCAL_ONLY)
+    registry = ModelRegistry()
+    registry.register_local(LocalAdapter(local, client))
+    runtime = engine(registry)
+    paused = runtime.run(
+        TaskRequest(
+            "Draft a payment",
+            "owner",
+            risk_class=RiskClass.FINANCIAL,
+            action_description=f"Call {PHONE}; identity {HKID}",
+        )
+    )
+    assert isinstance(paused, ApprovalPending)
+    result = runtime.decide(
+        paused.approval.id, approved=False, decided_by="owner", reason=f"Phone {PHONE}; {HKID}"
+    )
+    records = (
+        result.task.model_dump_json() + result.approval.model_dump_json() + runtime.audit_export()
+    )
+    assert PHONE not in records
+    assert HKID not in records
+    assert "[PHONE_" in records
+    assert client.calls == []
+    runtime.verify_audit()
+
+
 TEXT = frozenset({Capability.TEXT})
 PHONE = "9876 5432"
 HKID = "A123456(3)"
