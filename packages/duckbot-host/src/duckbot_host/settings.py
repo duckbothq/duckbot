@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
+from .atomic_file import atomic_write
+
 PROVIDERS = frozenset({"offline", "ollama", "openai", "anthropic"})
 _UPDATABLE = frozenset(
     {
@@ -158,6 +160,14 @@ def default_data_directory() -> Path:
     return Path.home() / ".duckbot"
 
 
+def updated_settings(current: DesktopSettings, changes: dict[str, Any]) -> DesktopSettings:
+    if changes.keys() - _UPDATABLE:
+        raise ValueError("settings contain an unsupported field")
+    if not all(isinstance(value, str) for value in changes.values()):
+        raise ValueError("settings values must be strings")
+    return replace(current, **changes).validated()
+
+
 class SettingsRepository:
     def __init__(self, path: Path) -> None:
         self._path = path
@@ -184,17 +194,10 @@ class SettingsRepository:
             raise ValueError("saved settings contain an invalid field") from exc
 
     def update(self, changes: dict[str, Any]) -> DesktopSettings:
-        unknown = changes.keys() - _UPDATABLE
-        if unknown:
-            raise ValueError("settings contain an unsupported field")
-        if not all(isinstance(value, str) for value in changes.values()):
-            raise ValueError("settings values must be strings")
-        updated = replace(self.load(), **changes).validated()
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(
-            json.dumps(updated.to_wire(), ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-            newline="\n",
+        updated = updated_settings(self.load(), changes)
+        atomic_write(
+            self._path,
+            (json.dumps(updated.to_wire(), ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
         )
         return updated
 
@@ -220,10 +223,5 @@ class InMemorySettingsRepository:
         return self._settings
 
     def update(self, changes: dict[str, Any]) -> DesktopSettings:
-        unknown = changes.keys() - _UPDATABLE
-        if unknown:
-            raise ValueError("settings contain an unsupported field")
-        if not all(isinstance(value, str) for value in changes.values()):
-            raise ValueError("settings values must be strings")
-        self._settings = replace(self._settings, **changes).validated()
+        self._settings = updated_settings(self._settings, changes)
         return self._settings

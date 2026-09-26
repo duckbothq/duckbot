@@ -47,6 +47,7 @@ from duckbot_schemas import (
     PlaceholderMap,
     PolicyAction,
     RiskClass,
+    TaskState,
     new_id,
 )
 
@@ -64,6 +65,7 @@ from .settings import (
     SettingsStore,
     default_data_directory,
     default_settings_repository,
+    updated_settings,
 )
 
 HOST_VERSION = "0.2.0"
@@ -139,9 +141,25 @@ class Session:
         self._task_engines[task_id] = engine
 
     def engine_for(self, task_id: str) -> TaskEngine:
-        return self._task_engines.get(task_id) or self.engine()
+        engine = self._task_engines.get(task_id)
+        if engine is None:
+            raise ValueError("preview is no longer available; prepare the task again")
+        return engine
+
+    def forget_finished(self, task_id: str) -> None:
+        engine = self._task_engines.get(task_id)
+        if engine is not None and engine.get_task(task_id).state not in {
+            TaskState.PLANNING,
+            TaskState.AWAITING_APPROVAL,
+            TaskState.RUNNING,
+        }:
+            self._task_engines.pop(task_id, None)
 
     def settings_changed(self) -> None:
+        for task_id, engine in list(self._task_engines.items()):
+            if engine.get_task(task_id).state in {TaskState.PLANNING, TaskState.AWAITING_APPROVAL}:
+                engine.cancel(task_id)
+            self.forget_finished(task_id)
         self._configured_engine = None
 
 
@@ -402,7 +420,17 @@ def build_handlers(session: Session) -> dict[str, Handler]:
 
     def task_execute(params: dict[str, Any]) -> dict[str, Any]:
         task_id = _text(params, "task_id")
-        return _outcome(session.engine_for(task_id).execute(task_id))
+        try:
+            return _outcome(session.engine_for(task_id).execute(task_id))
+        finally:
+            session.forget_finished(task_id)
+
+    def task_cancel(params: dict[str, Any]) -> dict[str, Any]:
+        task_id = _text(params, "task_id")
+        try:
+            return {"task": _task(session.engine_for(task_id).cancel(task_id))}
+        finally:
+            session.forget_finished(task_id)
 
     def approval_decide(params: dict[str, Any]) -> dict[str, Any]:
         approved = params.get("approved")
@@ -410,14 +438,20 @@ def build_handlers(session: Session) -> dict[str, Handler]:
             raise ValueError("approved must be true or false")
         approval_id = _text(params, "approval_id")
         task_id = _text(params, "task_id")
-        return _outcome(
-            session.engine_for(task_id).decide(
-                approval_id,
-                approved=approved,
-                decided_by=str(params.get("decided_by") or "desktop-user"),
-                reason=_optional_text(params, "reason"),
+        engine = session.engine_for(task_id)
+        if approval_id not in {item.id for item in engine.pending_approvals(task_id)}:
+            raise ValueError("approval does not belong to this prepared task")
+        try:
+            return _outcome(
+                engine.decide(
+                    approval_id,
+                    approved=approved,
+                    decided_by=str(params.get("decided_by") or "desktop-user"),
+                    reason=_optional_text(params, "reason"),
+                )
             )
-        )
+        finally:
+            session.forget_finished(task_id)
 
     def tasks_list(_: dict[str, Any]) -> dict[str, Any]:
         tasks = sorted(
@@ -455,17 +489,37 @@ def build_handlers(session: Session) -> dict[str, Handler]:
         changes = params.get("settings", {})
         if not isinstance(changes, dict):
             raise ValueError("settings must be an object")
-        updated = session.settings.update(changes)
+        updated = updated_settings(session.settings.load(), changes)
         api_key = params.get("api_key")
+        delete_key = params.get("delete_api_key", False)
+        if not isinstance(delete_key, bool):
+            raise ValueError("delete_api_key must be true or false")
+        if api_key is not None and delete_key:
+            raise ValueError("cannot save and delete an API key together")
         if api_key is not None:
             if not isinstance(api_key, str) or not api_key:
                 raise ValueError("API key must be a non-empty string")
             if updated.provider not in {"openai", "anthropic"}:
                 raise ValueError("API keys are only used by hosted providers")
-            session.secrets.set(updated.provider, api_key)
-        if params.get("delete_api_key") is True:
-            session.secrets.delete(updated.provider)
+            if not session.secrets.available:
+                raise SecretStorageUnavailable("secure API-key storage is unavailable")
+        # Invalidate old in-memory clients before changing or removing their credential.
         session.settings_changed()
+        change_secret = api_key is not None or delete_key
+        previous_key = session.secrets.get(updated.provider) if change_secret else None
+        if api_key is not None:
+            session.secrets.set(updated.provider, api_key)
+        elif delete_key:
+            session.secrets.delete(updated.provider)
+        try:
+            session.settings.update(changes)
+        except Exception:
+            if change_secret:
+                if previous_key is None:
+                    session.secrets.delete(updated.provider)
+                else:
+                    session.secrets.set(updated.provider, previous_key)
+            raise
         result: dict[str, Any] = updated.to_wire()
         result["has_api_key"] = session.secrets.has(updated.provider)
         return result
@@ -484,6 +538,7 @@ def build_handlers(session: Session) -> dict[str, Handler]:
         "forget": forget,
         "task_prepare": task_prepare,
         "task_execute": task_execute,
+        "task_cancel": task_cancel,
         "approval_decide": approval_decide,
         "tasks_list": tasks_list,
         "audit_list": audit_list,

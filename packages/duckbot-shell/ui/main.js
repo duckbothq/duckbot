@@ -5,6 +5,7 @@ const status = byId("status");
 let activePreview = null;
 let pendingApproval = null;
 let busy = false;
+let pendingCancellation = Promise.resolve();
 
 async function rpc(method, params = {}) {
   return invoke("rpc", { method, params });
@@ -25,6 +26,29 @@ function syncActionButtons() {
   byId("approve").disabled = busy || pendingApproval === null;
   byId("refuse").disabled = busy || pendingApproval === null;
 }
+
+function discardPreview({ cancel = true } = {}) {
+  const taskId = activePreview?.task_id;
+  activePreview = null;
+  pendingApproval = null;
+  byId("preview").hidden = true;
+  byId("approval").hidden = true;
+  syncActionButtons();
+  if (taskId && cancel) {
+    pendingCancellation = pendingCancellation
+      .then(() => rpc("task_cancel", { task_id: taskId }))
+      .catch((error) => setStatus(errorMessage(error), "error"));
+  }
+  return pendingCancellation;
+}
+
+["instruction", "risk-class", "action-description", "context-file"].forEach((id) => {
+  byId(id).addEventListener("input", () => {
+    if (!activePreview) return;
+    discardPreview();
+    setStatus("內容已修改，請重新預覽。 / Content changed; prepare a new preview.", "warning");
+  });
+});
 
 function setBusy(value) {
   busy = value;
@@ -90,14 +114,12 @@ byId("prepare").addEventListener("click", async () => {
     setStatus("請先輸入指示。 / Enter an instruction first.", "error");
     return;
   }
-  activePreview = null;
-  pendingApproval = null;
-  byId("preview").hidden = true;
-  byId("approval").hidden = true;
+  const cancelled = discardPreview();
   byId("result").hidden = true;
   setBusy(true);
   setStatus("正在本機分類及遮蔽資料… / Classifying and redacting locally…");
   try {
+    await cancelled;
     const preview = await rpc("task_prepare", {
       instruction,
       requester: "desktop-user",
@@ -108,6 +130,7 @@ byId("prepare").addEventListener("click", async () => {
     renderPreview(preview);
     setStatus("預覽已準備；尚未呼叫模型。 / Preview ready; no model called yet.", "ok");
   } catch (error) {
+    discardPreview();
     setStatus(errorMessage(error), "error");
   } finally {
     setBusy(false);
@@ -147,6 +170,7 @@ byId("execute").addEventListener("click", async () => {
   try {
     renderOutcome(await rpc("task_execute", { task_id: activePreview.task_id }));
   } catch (error) {
+    discardPreview();
     setStatus(errorMessage(error), "error");
   } finally {
     setBusy(false);
@@ -257,6 +281,7 @@ byId("settings-form").addEventListener("submit", async (event) => {
   setBusy(true);
   try {
     await rpc("settings_update", { settings, api_key: apiKey || null });
+    discardPreview({ cancel: false });
     byId("api-key").value = "";
     setStatus("設定已儲存。 / Settings saved.", "ok");
     await Promise.all([loadSettings(), loadFiles()]);
@@ -271,6 +296,7 @@ byId("delete-key").addEventListener("click", async () => {
   setBusy(true);
   try {
     await rpc("settings_update", { settings: {}, delete_api_key: true });
+    discardPreview({ cancel: false });
     await loadSettings();
     setStatus("已刪除金鑰。 / Saved key deleted.", "ok");
   } catch (error) {

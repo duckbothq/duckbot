@@ -18,7 +18,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
   "bundle": {
@@ -26,9 +26,9 @@
     "targets": [
       "nsis"
     ],
-    "resources": [
-      "resources/*"
-    ],
+    "resources": {
+      "resources/": ""
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser"

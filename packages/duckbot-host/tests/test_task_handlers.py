@@ -90,6 +90,77 @@ def test_financial_task_waits_for_explicit_desktop_decision() -> None:
     assert decided["task"]["human_interventions"] == 1
 
 
+def test_settings_change_cancels_prepared_tasks_and_old_approvals() -> None:
+    session = Session()
+    prepared = call(
+        session, "task_prepare", {"instruction": "Prepare a payment", "risk_class": "financial"}
+    )["result"]
+    task_id = prepared["task_id"]
+    paused = call(session, "task_execute", {"task_id": task_id})["result"]
+    assert "result" in call(session, "settings_update", {"settings": {}, "delete_api_key": True})
+    assert "error" in call(session, "task_execute", {"task_id": task_id})
+    assert "error" in call(
+        session,
+        "approval_decide",
+        {"task_id": task_id, "approval_id": paused["approval"]["id"], "approved": True},
+    )
+    task = call(session, "tasks_list")["result"]["tasks"][0]
+    assert task["state"] == "cancelled"
+    assert task["model_calls"] == 0
+    assert not session._task_engines
+
+
+def test_approval_cannot_be_applied_to_a_different_task() -> None:
+    session = Session()
+    prepared = [
+        call(
+            session, "task_prepare", {"instruction": "Prepare a payment", "risk_class": "financial"}
+        )["result"]
+        for _ in range(2)
+    ]
+    paused = [
+        call(session, "task_execute", {"task_id": item["task_id"]})["result"] for item in prepared
+    ]
+    wrong = call(
+        session,
+        "approval_decide",
+        {
+            "task_id": prepared[0]["task_id"],
+            "approval_id": paused[1]["approval"]["id"],
+            "approved": True,
+        },
+    )
+    assert "error" in wrong
+    assert len(session.engine().pending_approvals(prepared[1]["task_id"])) == 1
+    assert all(task["model_calls"] == 0 for task in call(session, "tasks_list")["result"]["tasks"])
+
+
+def test_cancel_rpc_discards_task_payload_and_rejects_later_execution() -> None:
+    session = Session()
+    task_id = call(session, "task_prepare", {"instruction": "Draft a reply"})["result"]["task_id"]
+    assert (
+        call(session, "task_cancel", {"task_id": task_id})["result"]["task"]["state"] == "cancelled"
+    )
+    assert "error" in call(session, "task_execute", {"task_id": task_id})
+    assert not session._task_engines
+
+
+def test_failed_key_validation_leaves_settings_unchanged() -> None:
+    session = Session()
+    before = session.settings.load()
+    for params in (
+        {"api_key": 123},
+        {"api_key": "secret", "delete_api_key": True},
+        {"api_key": "secret"},
+        {"delete_api_key": "yes"},
+    ):
+        result = call(
+            session, "settings_update", {"settings": {"per_task_budget_usd": "9.00"}, **params}
+        )
+        assert "error" in result
+        assert session.settings.load() == before
+
+
 def test_scoped_file_context_is_read_locally_and_identified_in_audit(tmp_path: Path) -> None:
     selected = tmp_path / "客戶文件"
     selected.mkdir()

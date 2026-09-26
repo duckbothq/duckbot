@@ -14,6 +14,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  desktop-ui:
+    name: desktop preview interactions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: node --test packages/duckbot-shell/tests/*.test.cjs
+
   test:
     name: test ${{ matrix.package }} (py${{ matrix.python-version }})
     runs-on: ubuntu-latest

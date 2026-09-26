@@ -13,21 +13,32 @@ service, telemetry, licence server, relay, or hosted proxy.
 
 ## Development
 
-Each `duckbot-*` directory is an independently testable Python package, except
+Each `packages/duckbot-*` directory is an independently testable Python package, except
 `duckbot-shell`, which is the thin Tauri desktop. Install schemas and core first, then
 privacy, gateway, memory, engine, eval, and host. The authoritative CI definitions are
-under `ci-files/.github/workflows` for integration into the public repository layout.
+under `.github/workflows`.
 
 Run a source-sidecar privacy smoke test on Windows:
 
 ```powershell
-$env:PYTHONPATH = "duckbot-schemas/src;duckbot-core/src;duckbot-privacy/src;duckbot-gateway/src;duckbot-memory/src;duckbot-engine/src;duckbot-host/src"
-python duckbot-host/scripts_smoke.py python -m duckbot_host
+$env:PYTHONPATH = (Get-ChildItem packages/*/src).FullName -join ';'
+python packages/duckbot-host/scripts_smoke.py python -m duckbot_host
+python packages/duckbot-host/scripts_product_smoke.py python -m duckbot_host
 ```
 
 The Windows workflow freezes `duckbot-host.exe`, copies it into the Tauri resources,
 builds an NSIS per-user installer, and still produces an unsigned artifact when signing
 credentials are unavailable.
+
+The offline provider is a demonstration echo. Select Ollama for a real local model,
+or configure a hosted provider, its current model prices, budget and API key. A source
+test pass does not certify a Windows installer or a live model account. Check the
+desktop workflow result for the exact commit before distributing its artifact.
+
+Changes to the instruction, risk, source file or approval description discard the
+current preview. Saving settings or deleting a provider key also cancels any prepared
+tasks, so running again requires a fresh preview. Cancellation does not interrupt a
+model request that has already started.
 
 ## Safety boundaries
 

@@ -40,6 +40,7 @@ from duckbot_schemas import (
     Task,
     TaskState,
     TaskStep,
+    new_id,
     utc_now,
 )
 
@@ -127,7 +128,9 @@ class TaskEngine:
             task.id,
             TaskStep(
                 ordinal=0,
-                description=request.action_description or "Complete the requested task",
+                description=self._safe_text(
+                    request.action_description or "Complete the requested task"
+                ),
                 risk_class=request.risk_class,
             ),
         )
@@ -236,7 +239,7 @@ class TaskEngine:
                 self._approvals.require(
                     task_id=task_id,
                     risk_class=prepared.request.risk_class,
-                    action_description=(
+                    action_description=self._safe_text(
                         prepared.request.action_description
                         or f"Perform the requested {prepared.request.risk_class.value} action"
                     ),
@@ -266,13 +269,17 @@ class TaskEngine:
         reason: str | None = None,
     ) -> TaskResult | TaskCancelled:
         """Record a human decision and resume the exact prepared task when approved."""
-        approval = self._approvals.decide(
-            approval_id, approved=approved, decided_by=decided_by, reason=reason
-        )
+        approval = self._approval(approval_id)
         prepared = self._prepared_for(approval.task_id)
         task = self._tasks.get(approval.task_id)
         if task.state is not TaskState.AWAITING_APPROVAL:
             raise RuntimeError(f"task {task.id} cannot consume an approval from {task.state.value}")
+        approval = self._approvals.decide(
+            approval_id,
+            approved=approved,
+            decided_by=decided_by,
+            reason=self._safe_text(reason) if reason is not None else None,
+        )
         self._record_human_intervention(task.id)
         if not approved:
             cancelled = self._tasks.transition(task.id, TaskState.CANCELLED, actor=decided_by)
@@ -289,6 +296,25 @@ class TaskEngine:
 
     def get_task(self, task_id: str) -> Task:
         return self._tasks.get(task_id)
+
+    def cancel(self, task_id: str, *, actor: str = "desktop-user") -> Task:
+        """Discard unsent content and close any approval attached to its old preview."""
+        task = self._tasks.get(task_id)
+        if task.state is TaskState.CANCELLED:
+            return task
+        if task.state not in {TaskState.PLANNING, TaskState.AWAITING_APPROVAL}:
+            raise ValueError("only a prepared or paused task can be cancelled")
+        for approval in self._approval_store.pending_for_task(task_id):
+            self._approvals.decide(
+                approval.id, approved=False, decided_by=actor, reason="Preview discarded"
+            )
+        self._tasks.transition(task_id, TaskState.CANCELLED, actor=actor)
+        self._finish_step(task_id, succeeded=False)
+        self._prepared.pop(task_id, None)
+        return self._tasks.get(task_id)
+
+    def _safe_text(self, text: str) -> str:
+        return self._privacy.redact(text, content_id=new_id("record")).redacted_text
 
     def list_tasks(self) -> list[Task]:
         return sorted(self._task_store.list_all(), key=lambda task: task.created_at, reverse=True)
@@ -413,7 +439,7 @@ class TaskEngine:
         try:
             return self._prepared[task_id]
         except KeyError as exc:
-            raise RuntimeError(f"task {task_id} has no prepared in-process payload") from exc
+            raise ValueError("preview is no longer available; prepare the task again") from exc
 
     def _approval(self, approval_id: str) -> Approval:
         approval = self._approval_store.get(approval_id)
