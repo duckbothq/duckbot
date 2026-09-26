@@ -14,19 +14,34 @@ python "$repo\packages\duckbot-host\scripts_smoke.py" $hostBinary
 if ($LASTEXITCODE -ne 0) { throw 'Installed privacy smoke failed' }
 python "$repo\packages\duckbot-host\scripts_product_smoke.py" $hostBinary
 if ($LASTEXITCODE -ne 0) { throw 'Installed task smoke failed' }
-$desktop = Start-Process -FilePath $shellBinary -PassThru
+$startupError = Join-Path $env:RUNNER_TEMP 'DuckbotInstalledSmokeStartup.txt'
+$desktop = Start-Process -FilePath $shellBinary -PassThru -RedirectStandardError $startupError
 try {
+  # Tauri creates its window before setup finishes spawning and handshaking the
+  # frozen host. A window handle alone does not mean setup has finished.
   $deadline = (Get-Date).AddSeconds(30)
+  $readySince = $null
   do {
     Start-Sleep -Milliseconds 500
     $desktop.Refresh()
     if ($desktop.HasExited) { throw "Installed desktop exited during startup: $($desktop.ExitCode)" }
-  } while ($desktop.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline)
+    $child = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($desktop.Id)" |
+      Where-Object { $_.Name -eq 'duckbot-host.exe' -and $_.ExecutablePath -eq $hostBinary })
+    if ($desktop.MainWindowHandle -ne 0 -and $child.Count -gt 0) {
+      if ($null -eq $readySince) { $readySince = Get-Date }
+      if (((Get-Date) - $readySince).TotalSeconds -ge 3) { break }
+    } else {
+      $readySince = $null
+    }
+  } while ((Get-Date) -lt $deadline)
   if ($desktop.MainWindowHandle -eq 0) { throw 'Installed desktop did not open a window' }
-  $child = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($desktop.Id)" |
-    Where-Object { $_.Name -eq 'duckbot-host.exe' }
-  if (!$child) { throw 'Installed desktop did not keep its local service running' }
+  if ($null -eq $readySince -or ((Get-Date) - $readySince).TotalSeconds -lt 3) {
+    throw 'Installed desktop did not keep its installed local service running'
+  }
   Write-Host 'Installed desktop opened its window and started the installed sidecar.'
+} catch {
+  if (Test-Path $startupError) { Get-Content $startupError }
+  throw
 } finally {
   Stop-Process -Id $desktop.Id -Force -ErrorAction SilentlyContinue
 }

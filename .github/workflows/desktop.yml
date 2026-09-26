@@ -108,6 +108,23 @@ jobs:
         working-directory: packages/duckbot-host
         run: pyinstaller --noconfirm --clean duckbot-host.spec
 
+      - name: Verify Windows credential encryption and recovery
+        shell: python
+        run: |
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          from duckbot_host.secret_store import DpapiSecretStore
+
+          with TemporaryDirectory(prefix="duckbot-dpapi-smoke-") as directory:
+              store = DpapiSecretStore(Path(directory))
+              fixture = "sk-Duckbot-Windows-DPAPI-privacy-check"
+              store.set("anthropic", fixture)
+              blob = Path(directory, "anthropic.dpapi").read_bytes()
+              assert fixture.encode("utf-8") not in blob
+              assert store.get("anthropic") == fixture
+              assert store.delete("anthropic") and not store.has("anthropic")
+          print("Windows DPAPI encryption, recovery and deletion verified.")
+
       # The check that matters on Windows, and the one that was missing: this platform
       # is where stdio defaults to the ANSI code page (cp950 on a Traditional Chinese
       # install), and where Chinese silently stopped being detected. Driven from Python
